@@ -14,15 +14,10 @@
 body.dark-theme {
     /* Dracula Theme Palette */
     --primary-color: #bd93f9;
-    /* Roxo */
     --secondary-color: #6272a4;
-    /* Cinza/Azul Comentário */
     --background-color: #282a36;
-    /* Fundo Principal */
     --surface-color: #44475a;
-    /* Fundo dos Cards */
     --text-color: #f8f8f2;
-    /* Texto Principal (Branco) */
     --text-color-secondary: #bdc1d4;
     --border-color: #6272a4;
     --shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
@@ -173,6 +168,14 @@ body.dark-theme {
 .primary-btn,
 .secondary,
 .file-label {
+    padding: 10px 20px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    font-weight: 500;
+    text-align: center;
+    background-color: var(--primary-color);
+    color: white;
     transition: background-color 0.2s, color 0.2s;
 }
 
@@ -194,7 +197,6 @@ body.dark-theme .primary-btn:disabled {
     color: #6272a4;
 }
 
-/* NOVO: Estilo melhorado para o botão de salvar do modal */
 #saveAndStartBtn {
     width: 100%;
     padding: 14px 20px;
@@ -254,15 +256,19 @@ body:not(.dark-theme) .file-label:hover {
 }
 
 .container {
-    max-width: 1200px;
+    max-width: 1600px;
     margin: auto;
     display: grid;
     gap: 20px;
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr 380px;
+    align-items: start;
+}
+
+.header, .file-controls, .metrics-grid, .portals-grid, .charts-container {
+    grid-column: 1 / 2;
 }
 
 .header {
-    grid-column: 1 / -1;
     display: flex;
     align-items: center;
     background-color: var(--surface-color);
@@ -320,7 +326,6 @@ body:not(.dark-theme) .file-label:hover {
 }
 
 .metrics-grid {
-    grid-column: 1 / -1;
     display: flex;
     flex-wrap: wrap;
     gap: 20px;
@@ -336,20 +341,17 @@ body:not(.dark-theme) .file-label:hover {
     cursor: grabbing;
 }
 
-/* ALTERADO: Regra unificada para garantir alinhamento vertical em todos os cards */
 .metric-card .value {
     color: var(--primary-color);
     font-size: 2.5em;
     font-weight: 700;
     margin: 0;
     min-height: 60px;
-    /* Garante altura mínima consistente */
     display: flex;
     align-items: center;
     justify-content: center;
 }
 
-/* ALTERADO: Apenas sobrescreve a fonte para o card de texto */
 .metric-card--text-value .value {
     font-size: 1.8em;
 }
@@ -361,7 +363,6 @@ body:not(.dark-theme) .file-label:hover {
 }
 
 .portals-grid {
-    grid-column: 1 / -1;
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
     gap: 20px;
@@ -393,8 +394,6 @@ body.dark-theme .portal-card:hover {
     display: flex;
     flex-wrap: wrap;
     gap: 20px;
-    max-width: 1200px;
-    margin: 0 auto;
 }
 
 .chart-card {
@@ -506,7 +505,6 @@ body.dark-theme .portal-card:hover {
 }
 
 .file-controls {
-    grid-column: 1 / -1;
     display: flex;
     gap: 10px;
     align-items: center;
@@ -514,14 +512,7 @@ body.dark-theme .portal-card:hover {
 }
 
 .file-controls button {
-    background-color: var(--primary-color);
-    color: white;
     padding: 10px 15px;
-    border-radius: 8px;
-    border: none;
-    cursor: pointer;
-    font-weight: 500;
-    transition: background-color 0.2s;
     text-align: center;
 }
 
@@ -533,8 +524,8 @@ body.dark-theme .file-controls button.secondary:hover {
     background-color: #505d84;
 }
 
-body:not(.dark-theme) .file-controls button:hover {
-    background-color: #0056b3;
+body:not(.dark-theme) .file-controls button.secondary:hover {
+    background-color: #5a6268;
 }
 
 .chart-card canvas {
@@ -567,4 +558,99 @@ body:not(.dark-theme) .file-controls button:hover {
 
 .theme-toggle-btn:hover {
     transform: scale(1.1);
+}
+
+/* === NOVOS ESTILOS PARA PAINEL DA IA === */
+
+
+#gemini-ai-panel {
+    grid-column: 2 / 3;
+    grid-row: 1 / 5;    /* <-- ADICIONE ESTA LINHA DE VOLTA */
+    display: flex;
+    flex-direction: column;
+}
+
+.ai-sub-title {
+    font-size: 0.9em;
+    color: var(--text-color-secondary);
+    margin-top: -15px;
+    margin-bottom: 15px;
+}
+
+#ai-chat-history {
+    flex-grow: 1;      /* Permite que a área do chat cresça para preencher o espaço livre */
+    overflow-y: auto;  /* Adiciona a barra de rolagem quando o conteúdo transborda */
+    min-height: 0;     /* Impede que o conteúdo empurre o container para fora */
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 10px;
+    margin-bottom: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.user-message,
+.ai-message {
+    padding: 8px 12px;
+    border-radius: 12px;
+    max-width: 90%;
+    line-height: 1.4;
+    word-wrap: break-word;
+}
+
+.user-message {
+    background-color: var(--primary-color);
+    color: white;
+    align-self: flex-end;
+    border-bottom-right-radius: 2px;
+}
+
+.ai-message {
+    background-color: var(--background-color);
+    color: var(--text-color);
+    align-self: flex-start;
+    border-bottom-left-radius: 2px;
+}
+
+#ai-prompt-form {
+    display: flex;
+    gap: 10px;
+}
+
+#ai-prompt-form textarea {
+    flex-grow: 1;
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    background-color: var(--surface-color);
+    color: var(--text-color);
+    resize: none;
+    font-family: inherit;
+    font-size: 1em;
+    height: 50px;
+}
+
+#ai-prompt-form button {
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 0 20px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+body:not(.dark-theme) #ai-prompt-form button:hover {
+    background-color: #0056b3;
+}
+
+body.dark-theme #ai-prompt-form button:hover {
+    background-color: #9670d3;
+}
+
+.fullscreen-modal .charts-container {
+    max-width: 1200px; /* Define uma largura máxima para não esticar demais */
+    margin: 20px auto; /* Centraliza o container na horizontal e adiciona uma margem no topo/baixo */
 }

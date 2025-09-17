@@ -1,515 +1,188 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
+
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard de Métricas e Objetivos</title>
-    
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
-    
-    <style>
-        /* CSS Reset e Estilos Gerais */
-        :root {
-            --primary-color: #007bff;
-            --secondary-color: #6c757d;
-            --background-color: #f4f7f6;
-            --surface-color: #ffffff;
-            --text-color: #333;
-            --border-color: #e9ecef;
-            --shadow: 0 4px 8px rgba(0, 0, 0, 0.05);
-        }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard de Métricas e Objetivos</title>
 
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            background-color: var(--background-color);
-            color: var(--text-color);
-            margin: 0;
-            padding: 20px;
-            line-height: 1.6;
-        }
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
 
-        /* Contêiner Principal */
-        .container {
-            max-width: 1200px;
-            margin: auto;
-            display: grid;
-            gap: 20px;
-            grid-template-columns: 1fr;
-        }
+    <script type="module">
+        import { GoogleGenerativeAI } from "https://esm.run/@google/generative-ai";
+        window.GoogleGenerativeAI = GoogleGenerativeAI;
+    </script>
 
-        /* Header */
-        .header {
-            grid-column: 1 / -1;
-            display: flex;
-            align-items: center;
-            background-color: var(--surface-color);
-            padding: 20px;
-            border-radius: 12px;
-            box-shadow: var(--shadow);
-        }
+    <link rel="stylesheet" href="style.css">
 
-        .profile-pic {
-            width: 80px;
-            height: 80px;
-            border-radius: 50%;
-            background-color: #e0e0e0;
-            margin-right: 20px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            overflow: hidden;
-            border: 3px solid var(--primary-color);
-            cursor: pointer;
-        }
-        
-        .profile-pic img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-
-        .profile-pic-placeholder {
-            font-size: 12px;
-            color: var(--secondary-color);
-            text-align: center;
-        }
-        
-        .header-title h1 {
-            margin: 0;
-            color: var(--primary-color);
-            font-size: 2em;
-        }
-
-        .header-title p {
-            margin: 0;
-            color: var(--secondary-color);
-        }
-        
-        /* Card genérico */
-        .card {
-            background-color: var(--surface-color);
-            padding: 20px;
-            border-radius: 12px;
-            box-shadow: var(--shadow);
-        }
-        
-        /* Layout dos cards de métricas */
-        .metrics-grid {
-            grid-column: 1 / -1;
-            display: grid;
-            gap: 20px;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-        }
-
-        .metric-card {
-            text-align: center;
-        }
-        
-        .metric-card .value {
-            font-size: 2.5em;
-            font-weight: 700;
-            color: var(--primary-color);
-            margin: 0;
-        }
-
-        .metric-card .label {
-            font-size: 1em;
-            color: var(--secondary-color);
-            margin-top: 5px;
-        }
-        
-        /* Layout dos cards de gráficos (Flexbox para reordenação) */
-        .charts-container {
-            grid-column: 1 / -1;
-            display: flex;
-            flex-wrap: wrap;
-            gap: 20px;
-        }
-
-        .chart-card {
-            min-width: 300px; /* Largura mínima para evitar quebra em telas menores */
-            cursor: grab;
-        }
-        
-        .chart-card.small {
-            flex: 1 1 calc(50% - 20px); /* Ocupa 50% do espaço, permitindo 2 por linha */
-        }
-        
-        .chart-card.large {
-            flex: 1 1 100%; /* Ocupa a linha inteira */
-        }
-        
-        .card-title {
-            margin-top: 0;
-            margin-bottom: 20px;
-            font-size: 1.2em;
-            font-weight: 600;
-        }
-        
-        /* Estilos visuais para Drag-and-Drop */
-        .sortable-ghost {
-            opacity: 0.4;
-            background-color: #c8ebfb;
-        }
-
-        .sortable-chosen {
-            cursor: grabbing;
-        }
-
-        /* Área de Apresentação */
-        .presentation-card {
-            grid-column: 1 / -1;
-        }
-        
-        #editor-toolbar {
-            border: 1px solid var(--border-color);
-            border-bottom: none;
-            padding: 8px;
-            border-radius: 8px 8px 0 0;
-            background-color: #f8f9fa;
-        }
-        
-        #editor-toolbar button {
-            background: none;
-            border: 1px solid transparent;
-            cursor: pointer;
-            padding: 5px 10px;
-            margin-right: 5px;
-            border-radius: 4px;
-            font-size: 16px;
-        }
-
-        #editor-toolbar button:hover {
-            background-color: #e2e6ea;
-            border-color: #dae0e5;
-        }
-
-        #presentation-editor {
-            border: 1px solid var(--border-color);
-            min-height: 250px;
-            padding: 15px;
-            border-radius: 0 0 8px 8px;
-            outline: none;
-        }
-
-        /* Controles de arquivo */
-        .file-controls {
-            grid-column: 1 / -1;
-            display: flex;
-            gap: 10px;
-            align-items: center;
-            flex-wrap: wrap;
-        }
-        
-        .file-controls button, .file-controls label {
-            background-color: var(--primary-color);
-            color: white;
-            padding: 10px 15px;
-            border-radius: 8px;
-            border: none;
-            cursor: pointer;
-            font-weight: 500;
-            transition: background-color 0.2s;
-            text-align: center;
-        }
-        
-        .file-controls button:hover, .file-controls label:hover {
-            background-color: #0056b3;
-        }
-        
-        .file-controls button.secondary {
-            background-color: var(--secondary-color);
-        }
-        
-        .file-controls button.secondary:hover {
-            background-color: #5a6268;
-        }
-
-        #csvFileInput {
-            display: none;
-        }
-    </style>
 </head>
+
 <body>
+    <div id="setupModal" class="modal modal--hidden">
+        <div class="modal-content">
+            <h2>Configuração Inicial</h2>
+            <p>Para começar, por favor, informe seus dados e carregue o arquivo CSV de métricas.</p>
+            <div class="form-group">
+                <label for="userName">Seu Nome</label>
+                <input type="text" id="userName" placeholder="Digite seu nome completo">
+            </div>
+            <div class="form-group">
+                <label for="userRole">Seu Cargo</label>
+                <input type="text" id="userRole" placeholder="Ex: Analista de Suporte">
+            </div>
+            <div class="form-group">
+                <label for="csvFileInputModal" class="file-label">Escolher Arquivo CSV</label>
+                <input type="file" id="csvFileInputModal" accept=".csv" style="display:none;">
+                <span id="modalFileName">Nenhum arquivo selecionado</span>
+            </div>
+            <button id="saveAndStartBtn" class="primary-btn" disabled>Salvar e Iniciar</button>
+        </div>
+    </div>
 
-    <div class="container">
-        <header class="header">
-            <div class="profile-pic" id="profilePicContainer">
-                <span class="profile-pic-placeholder">Adicionar Foto</span>
-            </div>
-            <input type="file" id="profilePicInput" accept="image/*" style="display: none;">
-            <div class="header-title">
-                <h1>Métricas e Objetivos</h1>
-                <p>Dashboard de performance profissional</p>
-            </div>
-        </header>
+<div id="chartsModal" class="fullscreen-modal modal--hidden">
+    <div class="fullscreen-modal-header">
+        <h2>Gráficos de Performance</h2>
+        <span class="close-btn" data-modal-id="chartsModal">&times;</span>
+    </div>
+    <div id="charts-container" class="charts-container">
+        <div id="status-chart-card" class="chart-card card small">
+            <h3 class="card-title">Cards por Status</h3>
+            <canvas id="statusChart"></canvas>
+        </div>
+        <div id="work-item-chart-card" class="chart-card card small">
+            <h3 class="card-title">Cards por Tipo (Work Item)</h3>
+            <canvas id="workItemChart"></canvas>
+        </div>
+        <div id="tags-chart-card" class="chart-card card large">
+            <h3 class="card-title">Cards por Tags</h3>
+            <canvas id="tagsChart"></canvas>
+        </div>
+    </div>
+</div>
+    <div id="atuacoesModal" class="fullscreen-modal modal--hidden">
+        <div class="fullscreen-modal-header">
+            <h2>Minhas Atuações e Conquistas</h2>
+            <span class="close-btn" data-modal-id="atuacoesModal">&times;</span>
+        </div>
+        <div id="atuacoes-list" class="editable-item-list"></div>
+        <button id="atuacoes-new-btn" class="primary-btn btn-new-item">Adicionar Nova Atuação</button>
+        <div id="atuacoes-editor" class="editor-wrapper">
+            <input type="hidden" class="editor-id">
+            <div class="form-group">
+                <label>Título</label>
+                <input type="text" class="editor-title" placeholder="Ex: Otimização do Fluxo de Atendimento">
+            </div>
+            <div class="editor-toolbar">
+                <button data-command="bold"><b>B</b></button>
+                <button data-command="italic"><i>I</i></button>
+                <button data-command="underline"><u>U</u></button>
+                <button data-command="insertUnorderedList">●</button>
+                <button data-command="insertImage">🖼️</button>
+            </div>
+            <div class="editor-content" contenteditable="true"></div>
+            <div class="editor-controls">
+                <button class="secondary editor-cancel">Cancelar</button>
+                <button class="primary-btn editor-save">Salvar</button>
+            </div>
+        </div>
+    </div>
+    <div id="desenvolvimentoModal" class="fullscreen-modal modal--hidden">
+        <div class="fullscreen-modal-header">
+            <h2>Meu Plano de Desenvolvimento</h2>
+            <span class="close-btn" data-modal-id="desenvolvimentoModal">&times;</span>
+        </div>
+        <div id="desenvolvimento-list" class="editable-item-list"></div>
+        <button id="desenvolvimento-new-btn" class="primary-btn btn-new-item">Adicionar Novo Item</button>
+        <div id="desenvolvimento-editor" class="editor-wrapper">
+            <input type="hidden" class="editor-id">
+            <div class="form-group">
+                <label>Título</label>
+                <input type="text" class="editor-title" placeholder="Ex: Curso de Especialização em Power BI">
+            </div>
+            <div class="editor-toolbar">
+                <button data-command="bold"><b>B</b></button>
+                <button data-command="italic"><i>I</i></button>
+                <button data-command="underline"><u>U</u></button>
+                <button data-command="insertUnorderedList">●</button>
+                <button data-command="insertImage">🖼️</button>
+            </div>
+            <div class="editor-content" contenteditable="true"></div>
+            <div class="editor-controls">
+                <button class="secondary editor-cancel">Cancelar</button>
+                <button class="primary-btn editor-save">Salvar</button>
+            </div>
+        </div>
+    </div>
 
-        <div class="file-controls">
-            <label for="csvFileInput">Carregar CSV</label>
-            <input type="file" id="csvFileInput" accept=".csv">
-            <button id="clearDataBtn" class="secondary">Limpar Dados Salvos</button>
-            <span id="fileName" style="margin-left: 10px; color: var(--secondary-color);">Dados carregados do salvamento local.</span>
-        </div>
-        
-        <div class="metrics-grid">
-            <div class="metric-card card">
-                <p class="value" id="totalCards">0</p>
-                <p class="label">Total de Cards</p>
-            </div>
-            <div class="metric-card card">
-                <p class="value" id="avgPerDay">0.0</p>
-                <p class="label">Média de Cards / Dia (22 dias)</p>
-            </div>
-            <div class="metric-card card">
-                <p class="value" id="closedCards">0</p>
-                <p class="label">Cards Fechados</p>
-            </div>
-        </div>
+    <h1 class="main-title">Dashboard de Performance Profissional</h1>
+    <div class="container">
+        <header class="header">
+            <div class="profile-pic" id="profilePicContainer">
+                <span class="profile-pic-placeholder">Add Foto</span>
+            </div>
+            <input type="file" id="profilePicInput" accept="image/*" style="display: none;">
+            <div class="header-title">
+                <h1 id="headerName">Seu Nome</h1>
+                <p id="headerRole">Seu Cargo</p>
+            </div>
+        </header>
 
-        <div id="charts-container" class="charts-container">
-            <div id="status-chart-card" class="chart-card card small">
-                <h3 class="card-title">Cards por Status</h3>
-                <canvas id="statusChart"></canvas>
-            </div>
-            
-            <div id="work-item-chart-card" class="chart-card card small">
-                <h3 class="card-title">Cards por Tipo (Work Item)</h3>
-                <canvas id="workItemChart"></canvas>
-            </div>
-            
-            <div id="tags-chart-card" class="chart-card card large">
-                <h3 class="card-title">Cards por Tags</h3>
-                <canvas id="tagsChart"></canvas>
-            </div>
-        </div>
+        <div class="file-controls">
+            <button id="clearDataBtn" class="secondary">Limpar Tudo e Reiniciar</button>
+        </div>
 
-        <div class="presentation-card card">
-            <h3 class="card-title">Área de Apresentação</h3>
-             <div id="editor-toolbar">
-                <button onclick="formatDoc('bold')"><b>B</b></button>
-                <button onclick="formatDoc('italic')"><i>I</i></button>
-                <button onclick="formatDoc('underline')"><u>U</u></button>
-                <button onclick="addImage()">🖼️ Add Imagem</button>
-            </div>
-            <div id="presentation-editor" contenteditable="true" spellcheck="false">
-                Escreva aqui sua apresentação, adicione notas ou cole imagens...
-            </div>
-        </div>
-    </div>
+        <div id="metrics-grid" class="metrics-grid">
+            <div id="metric-total" class="metric-card card">
+                <p class="value" id="totalCards">0</p>
+                <p class="label">Total de Cards</p>
+            </div>
+            <div id="metric-avg" class="metric-card card">
+                <p class="value" id="avgPerDay">0.0</p>
+                <p class="label">Média / Dia Útil</p>
+            </div>
+            <div id="metric-escalonado" class="metric-card card">
+                <p class="value" id="escalonadoValue">0</p>
+                <p class="label">Escalonado Engenharia</p>
+            </div>
+            <div id="metric-principal-tag" class="metric-card card metric-card--text-value">
+                <p class="value" id="principalTagValue">-</p>
+                <p class="label">Principal Tag</p>
+            </div>
+            <div id="metric-principal-item" class="metric-card card">
+                <p class="value" id="principalWorkItemValue">0%</p>
+                <p class="label" id="principalWorkItemLabel">Principal Item</p>
+            </div>
+        </div>
 
-    <script>
-        // Variáveis globais para armazenar instâncias dos gráficos
-        let statusChartInstance, tagsChartInstance, workItemChartInstance;
-        const WORKING_DAYS = 22;
+        <div class="portals-grid">
+            <div class="portal-card card" id="openChartsModal">
+                <h3>Visualizar <br> Gráficos</h3>
+            </div>
+            <div class="portal-card card" id="openAtuacoesModal">
+                <h3>Minhas Atuações e Conquistas</h3>
+            </div>
+            <div class="portal-card card" id="openDesenvolvimentoModal">
+                <h3>Plano de<br>  Desenvolvimento</h3>
+            </div>
+        </div>
 
-        // Ao carregar a página
-        document.addEventListener('DOMContentLoaded', () => {
-            loadDataFromStorage();
-            loadEditorContent();
-            loadProfilePicture();
-            restoreChartOrder(); // Restaura a ordem dos gráficos
-            initializeDragAndDrop(); // Inicializa o drag-and-drop
-            
-            // Listeners
-            document.getElementById('csvFileInput').addEventListener('change', handleFileSelect, false);
-            document.getElementById('clearDataBtn').addEventListener('click', clearAllData);
-            document.getElementById('presentation-editor').addEventListener('input', saveEditorContent);
-            document.getElementById('profilePicContainer').addEventListener('click', () => document.getElementById('profilePicInput').click());
-            document.getElementById('profilePicInput').addEventListener('change', handleProfilePicSelect);
-        });
-        
-        // Inicializa o SortableJS para drag-and-drop
-        function initializeDragAndDrop() {
-            const container = document.getElementById('charts-container');
-            new Sortable(container, {
-                animation: 150, // Animação da troca de posição
-                ghostClass: 'sortable-ghost', // Classe para o elemento fantasma
-                chosenClass: 'sortable-chosen', // Classe para o elemento selecionado
-                onEnd: saveChartOrder, // Função para salvar a ordem ao soltar
-            });
-        }
-        
-        // Salva a nova ordem dos gráficos no localStorage
-        function saveChartOrder(evt) {
-            const container = evt.from;
-            const order = Array.from(container.children).map(child => child.id);
-            localStorage.setItem('chartOrder', JSON.stringify(order));
-        }
+        <div id="gemini-ai-panel" class="card">
+            <h3 class="card-title">Assistente de Análise</h3>
+            <p class="ai-sub-title">Pergunte sobre os dados carregados.</p>
+            <div id="ai-chat-history">
+                <div class="ai-message">Olá! Vamos analisar suas métricas!</div>
+            </div>
+            <form id="ai-prompt-form">
+                <textarea id="ai-prompt-input" placeholder="Ex: Qual a tag mais comum?" required></textarea>
+                <button type="submit">Enviar</button>
+            </form>
+        </div>
+    </div>
 
-        // Restaura a ordem dos gráficos a partir do localStorage
-        function restoreChartOrder() {
-            const savedOrder = JSON.parse(localStorage.getItem('chartOrder'));
-            if (savedOrder) {
-                const container = document.getElementById('charts-container');
-                savedOrder.forEach(chartId => {
-                    const chartElement = document.getElementById(chartId);
-                    if (chartElement) {
-                        container.appendChild(chartElement);
-                    }
-                });
-            }
-        }
+    <button id="theme-toggle" class="theme-toggle-btn">🌙</button>
 
-        // Manipula a seleção de arquivo CSV
-        function handleFileSelect(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-
-            document.getElementById('fileName').textContent = `Arquivo: ${file.name}`;
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                const text = e.target.result;
-                const data = parseCSV(text);
-                processAndStoreData(data);
-            };
-            reader.readAsText(file);
-        }
-
-        // Converte o texto do CSV para um array de objetos
-        function parseCSV(text) {
-            const lines = text.trim().split('\n');
-            const header = lines[0].split(';').map(h => h.trim());
-            const rows = lines.slice(1).map(line => {
-                const values = line.split(';');
-                let obj = {};
-                header.forEach((key, i) => {
-                    obj[key] = values[i] ? values[i].trim() : '';
-                });
-                return obj;
-            });
-            return rows;
-        }
-
-        // Processa os dados e os salva no localStorage
-        function processAndStoreData(data) {
-            const stats = {
-                totalCards: data.length,
-                avgPerDay: (data.length / WORKING_DAYS).toFixed(1),
-                closedCards: data.filter(d => d['State'] && d['State'].toLowerCase() === 'fechado').length,
-                byStatus: countBy(data, 'State'),
-                byTags: countBy(data, 'Tags'),
-                byWorkItem: countBy(data, 'Work Item Type')
-            };
-            
-            localStorage.setItem('dashboardData', JSON.stringify(stats));
-            displayData(stats);
-        }
-
-        // Carrega dados do localStorage
-        function loadDataFromStorage() {
-            const storedData = localStorage.getItem('dashboardData');
-            if (storedData) {
-                const stats = JSON.parse(storedData);
-                displayData(stats);
-                document.getElementById('fileName').textContent = "Dados carregados do salvamento local.";
-            } else {
-                document.getElementById('fileName').textContent = "Nenhum dado salvo. Carregue um arquivo CSV.";
-            }
-        }
-        
-        // Exibe os dados nas métricas e nos gráficos
-        function displayData(stats) {
-            document.getElementById('totalCards').textContent = stats.totalCards;
-            document.getElementById('avgPerDay').textContent = stats.avgPerDay;
-            document.getElementById('closedCards').textContent = stats.closedCards;
-            
-            renderCharts(stats);
-        }
-
-        // Renderiza os três gráficos
-        function renderCharts(stats) {
-            if (statusChartInstance) statusChartInstance.destroy();
-            if (tagsChartInstance) tagsChartInstance.destroy();
-            if (workItemChartInstance) workItemChartInstance.destroy();
-
-            const statusCtx = document.getElementById('statusChart').getContext('2d');
-            statusChartInstance = new Chart(statusCtx, {
-                type: 'doughnut',
-                data: {
-                    labels: Object.keys(stats.byStatus),
-                    datasets: [{
-                        label: 'Cards por Status',
-                        data: Object.values(stats.byStatus),
-                        backgroundColor: ['#007bff', '#28a745', '#ffc107', '#dc3545', '#17a2b8', '#6c757d'],
-                    }]
-                },
-                options: { responsive: true, plugins: { legend: { position: 'top' } }, devicePixelRatio: 2 }
-            });
-
-            const tagsCtx = document.getElementById('tagsChart').getContext('2d');
-            tagsChartInstance = new Chart(tagsCtx, {
-                type: 'bar',
-                data: {
-                    labels: Object.keys(stats.byTags),
-                    datasets: [{
-                        label: 'Cards por Tag',
-                        data: Object.values(stats.byTags),
-                        backgroundColor: '#28a745',
-                    }]
-                },
-                options: { indexAxis: 'y', responsive: true, plugins: { legend: { display: false } }, devicePixelRatio: 2 }
-            });
-
-            const workItemCtx = document.getElementById('workItemChart').getContext('2d');
-            workItemChartInstance = new Chart(workItemCtx, {
-                type: 'bar',
-                data: {
-                    labels: Object.keys(stats.byWorkItem),
-                    datasets: [{
-                        label: 'Cards por Tipo',
-                        data: Object.values(stats.byWorkItem),
-                        backgroundColor: '#ffc107',
-                    }]
-                },
-                options: { responsive: true, plugins: { legend: { display: false } }, devicePixelRatio: 2 }
-            });
-        }
-        
-        function countBy(data, key) {
-            const counts = {};
-            for (const item of data) {
-                let value = item[key] || 'Sem Categoria';
-                if(value.trim() === '') value = 'Sem Categoria';
-                counts[value] = (counts[value] || 0) + 1;
-            }
-            return counts;
-        }
-
-        function clearAllData() {
-            if (confirm("Você tem certeza que deseja apagar todos os dados salvos (métricas, apresentação, ordem dos gráficos e foto)?")) {
-                localStorage.clear();
-                window.location.reload();
-            }
-        }
-        
-        // --- Lógica do Editor de Texto ---
-        function formatDoc(command, value = null) { document.execCommand(command, false, value); }
-        function addImage() { const url = prompt('Insira a URL da imagem:'); if (url) { formatDoc('insertImage', url); } }
-        function saveEditorContent() { localStorage.setItem('editorContent', document.getElementById('presentation-editor').innerHTML); }
-        function loadEditorContent() { const content = localStorage.getItem('editorContent'); if (content) { document.getElementById('presentation-editor').innerHTML = content; } }
-        
-        // --- Lógica da Foto de Perfil ---
-        function handleProfilePicSelect(event) {
-            const file = event.target.files[0];
-            if (file && file.type.startsWith('image/')) {
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    const imageUrl = e.target.result;
-                    localStorage.setItem('profilePicture', imageUrl);
-                    displayProfilePicture(imageUrl);
-                };
-                reader.readAsDataURL(file);
-            }
-        }
-        function loadProfilePicture() { const imageUrl = localStorage.getItem('profilePicture'); if(imageUrl) { displayProfilePicture(imageUrl); } }
-        function displayProfilePicture(imageUrl) {
-            const container = document.getElementById('profilePicContainer');
-            container.innerHTML = '';
-            const img = document.createElement('img');
-            img.src = imageUrl;
-            container.appendChild(img);
-        }
-    </script>
+    <script src="script.js"></script>
 </body>
+
 </html>
