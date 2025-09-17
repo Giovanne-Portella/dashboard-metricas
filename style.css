@@ -433,6 +433,8 @@ body.dark-theme .portal-card:hover {
 }
 
 .editor-toolbar {
+    display: flex;
+    align-items: center;
     border: 1px solid var(--border-color);
     border-bottom: none;
     padding: 8px;
@@ -560,12 +562,9 @@ body:not(.dark-theme) .file-controls button.secondary:hover {
     transform: scale(1.1);
 }
 
-/* === NOVOS ESTILOS PARA PAINEL DA IA === */
-
-
 #gemini-ai-panel {
     grid-column: 2 / 3;
-    grid-row: 1 / 5;    /* <-- ADICIONE ESTA LINHA DE VOLTA */
+    grid-row: 1 / 5;
     display: flex;
     flex-direction: column;
 }
@@ -578,9 +577,9 @@ body:not(.dark-theme) .file-controls button.secondary:hover {
 }
 
 #ai-chat-history {
-    flex-grow: 1;      /* Permite que a área do chat cresça para preencher o espaço livre */
-    overflow-y: auto;  /* Adiciona a barra de rolagem quando o conteúdo transborda */
-    min-height: 0;     /* Impede que o conteúdo empurre o container para fora */
+    flex-grow: 1;
+    overflow-y: auto;
+    min-height: 0;
     border: 1px solid var(--border-color);
     border-radius: 8px;
     padding: 10px;
@@ -651,6 +650,27 @@ body.dark-theme #ai-prompt-form button:hover {
 }
 
 .fullscreen-modal .charts-container {
-    max-width: 1200px; /* Define uma largura máxima para não esticar demais */
-    margin: 20px auto; /* Centraliza o container na horizontal e adiciona uma margem no topo/baixo */
+    max-width: 1200px;
+    margin: 20px auto;
+}
+
+.editor-toolbar .ai-improve-btn {
+    margin-left: auto;
+    background-color: var(--primary-color);
+    color: white;
+    font-weight: 500;
+    padding: 5px 12px;
+}
+
+body:not(.dark-theme) .editor-toolbar .ai-improve-btn:hover {
+    background-color: #0056b3;
+}
+
+body.dark-theme .editor-toolbar .ai-improve-btn:hover {
+    background-color: #9670d3;
+}
+
+.editor-toolbar .ai-improve-btn:disabled {
+    cursor: wait;
+    opacity: 0.7;
 }

@@ -15,7 +15,6 @@
     </script>
 
     <link rel="stylesheet" href="style.css">
-
 </head>
 
 <body>
@@ -40,26 +39,26 @@
         </div>
     </div>
 
-<div id="chartsModal" class="fullscreen-modal modal--hidden">
-    <div class="fullscreen-modal-header">
-        <h2>Gráficos de Performance</h2>
-        <span class="close-btn" data-modal-id="chartsModal">&times;</span>
+    <div id="chartsModal" class="fullscreen-modal modal--hidden">
+        <div class="fullscreen-modal-header">
+            <h2>Gráficos de Performance</h2>
+            <span class="close-btn" data-modal-id="chartsModal">&times;</span>
+        </div>
+        <div id="charts-container" class="charts-container">
+            <div id="status-chart-card" class="chart-card card small">
+                <h3 class="card-title">Cards por Status</h3>
+                <canvas id="statusChart"></canvas>
+            </div>
+            <div id="work-item-chart-card" class="chart-card card small">
+                <h3 class="card-title">Cards por Tipo (Work Item)</h3>
+                <canvas id="workItemChart"></canvas>
+            </div>
+            <div id="tags-chart-card" class="chart-card card large">
+                <h3 class="card-title">Cards por Tags</h3>
+                <canvas id="tagsChart"></canvas>
+            </div>
+        </div>
     </div>
-    <div id="charts-container" class="charts-container">
-        <div id="status-chart-card" class="chart-card card small">
-            <h3 class="card-title">Cards por Status</h3>
-            <canvas id="statusChart"></canvas>
-        </div>
-        <div id="work-item-chart-card" class="chart-card card small">
-            <h3 class="card-title">Cards por Tipo (Work Item)</h3>
-            <canvas id="workItemChart"></canvas>
-        </div>
-        <div id="tags-chart-card" class="chart-card card large">
-            <h3 class="card-title">Cards por Tags</h3>
-            <canvas id="tagsChart"></canvas>
-        </div>
-    </div>
-</div>
     <div id="atuacoesModal" class="fullscreen-modal modal--hidden">
         <div class="fullscreen-modal-header">
             <h2>Minhas Atuações e Conquistas</h2>
@@ -79,6 +78,7 @@
                 <button data-command="underline"><u>U</u></button>
                 <button data-command="insertUnorderedList">●</button>
                 <button data-command="insertImage">🖼️</button>
+                <button class="ai-improve-btn" title="Melhorar texto com IA">✨ Melhorar com IA</button>
             </div>
             <div class="editor-content" contenteditable="true"></div>
             <div class="editor-controls">
@@ -106,6 +106,7 @@
                 <button data-command="underline"><u>U</u></button>
                 <button data-command="insertUnorderedList">●</button>
                 <button data-command="insertImage">🖼️</button>
+                <button class="ai-improve-btn" title="Melhorar texto com IA">✨ Melhorar com IA</button>
             </div>
             <div class="editor-content" contenteditable="true"></div>
             <div class="editor-controls">
@@ -156,14 +157,14 @@
         </div>
 
         <div class="portals-grid">
-            <div class="portal-card card" id="openChartsModal">
-                <h3>Visualizar <br> Gráficos</h3>
-            </div>
             <div class="portal-card card" id="openAtuacoesModal">
-                <h3>Minhas Atuações e Conquistas</h3>
+                <h3>Atuações Principais</h3>
             </div>
             <div class="portal-card card" id="openDesenvolvimentoModal">
-                <h3>Plano de<br>  Desenvolvimento</h3>
+                <h3>Desenvolvimento</h3>
+            </div>
+            <div class="portal-card card" id="openChartsModal">
+                <h3>Ver Insights</h3>
             </div>
         </div>
 

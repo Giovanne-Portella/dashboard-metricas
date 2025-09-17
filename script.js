@@ -18,7 +18,7 @@ const App = {
         EditableSection.init('atuacoes', 'principalAtuacoesData');
         EditableSection.init('desenvolvimento', 'meuDesenvolvimentoData');
         GeminiAI.init();
-        App.adjustAIPanelHeight(); // <-- CHAMADA ADICIONADA
+        App.adjustAIPanelHeight(); // <-- CORREÇÃO
     },
 
     checkInitialState: function () {
@@ -72,7 +72,7 @@ const App = {
         App.initializeChartsDragAndDrop();
         App.initializeMetricsDragAndDrop();
         App.restoreMetricsOrder();
-        App.adjustAIPanelHeight(); // <-- CHAMADA ADICIONADA
+        App.adjustAIPanelHeight(); // <-- CORREÇÃO
     },
 
     handleFileSelect: function (event) {
@@ -259,32 +259,22 @@ const App = {
         document.getElementById('profilePicContainer').innerHTML = `<img src="${imageUrl}" alt="Foto de Perfil">`;
     },
 
-    // ===== NOVA FUNÇÃO PARA AJUSTAR A ALTURA DO PAINEL DA IA =====
     adjustAIPanelHeight: function() {
-        // Seleciona os elementos da coluna da esquerda
         const header = document.querySelector('.header');
         const fileControls = document.querySelector('.file-controls');
         const metricsGrid = document.getElementById('metrics-grid');
         const portalsGrid = document.querySelector('.portals-grid');
         const container = document.querySelector('.container');
-
         if (!header || !fileControls || !metricsGrid || !portalsGrid || !container) {
-            console.error("Não foi possível encontrar um dos elementos para calcular a altura.");
             return;
         }
-
-        // Pega o espaçamento (gap) definido no grid do container
         const containerStyle = window.getComputedStyle(container);
         const gridGap = parseFloat(containerStyle.gap) || 20;
-
-        // Soma a altura de cada elemento e os espaçamentos entre eles
         const totalHeight = header.offsetHeight +
                             fileControls.offsetHeight +
                             metricsGrid.offsetHeight +
                             portalsGrid.offsetHeight +
-                            (gridGap * 3); // 3 gaps entre os 4 elementos
-
-        // Aplica a altura calculada diretamente ao painel da IA
+                            (gridGap * 3);
         const aiPanel = document.getElementById('gemini-ai-panel');
         if (aiPanel) {
             aiPanel.style.height = `${totalHeight}px`;
@@ -356,14 +346,33 @@ const EditableSection = {
         });
         section.elements.editor.toolbar.addEventListener('click', (e) => {
             const button = e.target.closest('button');
-            if (!button || !button.dataset.command) return;
-            e.preventDefault();
-            const command = button.dataset.command;
-            if (command === 'insertImage') {
-                const url = prompt('URL da Imagem:');
-                if (url) document.execCommand(command, false, url);
-            } else { document.execCommand(command, false, null); }
+            if (button && button.dataset.command) {
+                e.preventDefault();
+                const command = button.dataset.command;
+                if (command === 'insertImage') {
+                    const url = prompt('URL da Imagem:');
+                    if (url) document.execCommand(command, false, url);
+                } else { document.execCommand(command, false, null); }
+            }
         });
+
+        const aiBtn = section.elements.editor.wrapper.querySelector('.ai-improve-btn');
+        if (aiBtn) {
+            aiBtn.addEventListener('click', async () => {
+                const contentEditor = section.elements.editor.content;
+                const originalText = contentEditor.innerHTML;
+                if (originalText.trim() === '') {
+                    alert('Por favor, escreva algo antes de pedir ajuda à IA.');
+                    return;
+                }
+                aiBtn.disabled = true;
+                aiBtn.textContent = 'Aprimorando...';
+                const improvedText = await GeminiAI.improveText(originalText);
+                contentEditor.innerHTML = improvedText;
+                aiBtn.disabled = false;
+                aiBtn.textContent = '✨ Melhorar com IA';
+            });
+        }
     },
     renderList: function (section) {
         section.elements.list.innerHTML = '';
@@ -490,6 +499,26 @@ Pergunta do usuário:
         chatHistory.scrollTop = chatHistory.scrollHeight;
 
         return messageDiv;
+    },
+
+    improveText: async function (originalText) {
+        const fullPrompt = `Você é um assistente de escrita especialista em comunicação profissional. Sua tarefa é reescrever o texto a seguir para que ele soe mais claro, profissional e impactante, ideal para um relatório de performance ou plano de desenvolvimento.
+        Mantenha o sentido e as informações originais, mas melhore a gramática, o tom e a estrutura.
+        Formate a resposta usando tags HTML simples se necessário (como <b>, <i>, <ul>, <li>).
+        Retorne apenas o texto reescrito, sem introduções como "Aqui está o texto reescrito:".
+
+        Texto original para reescrever:
+        "${originalText}"
+        `;
+
+        try {
+            const result = await this.model.generateContent(fullPrompt);
+            const response = await result.response;
+            return response.text();
+        } catch (error) {
+            console.error("Erro na API do Gemini ao tentar melhorar o texto:", error);
+            return originalText;
+        }
     }
 };
 
