@@ -18,7 +18,7 @@ const App = {
         EditableSection.init('atuacoes', 'principalAtuacoesData');
         EditableSection.init('desenvolvimento', 'meuDesenvolvimentoData');
         GeminiAI.init();
-        App.adjustAIPanelHeight(); // <-- CORREÇÃO
+        App.adjustAIPanelHeight(); 
     },
 
     checkInitialState: function () {
