@@ -1,10 +1,44 @@
 'use strict';
 
+/**
+ * Gera um gradiente de tons de verde com base nos valores de entrada.
+ * @param {number[]} values - Um array de números (as quantidades de cada tag).
+ * @returns {string[]} - Um array de cores no formato 'rgb(r, g, b)'.
+ */
+function generateGreenShades(values) {
+    if (values.length === 0) return [];
+
+    const minValue = Math.min(...values);
+    const maxValue = Math.max(...values);
+
+    const startColor = { r: 220, g: 245, b: 225 }; // Verde bem claro
+    const endColor = { r: 15, g: 110, b: 40 };   // Verde escuro
+
+    if (minValue === maxValue) {
+        const midColor = `rgb(${Math.round((startColor.r + endColor.r) / 2)}, ${Math.round((startColor.g + endColor.g) / 2)}, ${Math.round((startColor.b + endColor.b) / 2)})`;
+        return values.map(() => midColor);
+    }
+
+    return values.map(value => {
+        const ratio = (maxValue - minValue) > 0 ? (value - minValue) / (maxValue - minValue) : 1;
+        const r = Math.round(startColor.r + ratio * (endColor.r - startColor.r));
+        const g = Math.round(startColor.g + ratio * (endColor.g - startColor.g));
+        const b = Math.round(startColor.b + ratio * (endColor.b - startColor.b));
+        return `rgb(${r}, ${g}, ${b})`;
+    });
+}
+
+
 const App = {
     charts: { status: null, tags: null, workItem: null },
-    data: { stats: null },
+    data: {
+        stats: null,
+        fullRawData: [],
+        currentFilter: 'all'
+    },
     CONFIG: {
         WORKING_DAYS: 21,
+        MONTH_COLUMN_NAME: 'Mês',
         CHART_COLORS: {
             light: ['#007bff', '#17a2b8', '#28a745', '#ffc107', '#dc3545', '#6c757d'],
             dark: ['#ff79c6', '#8be9fd', '#50fa7b', '#f1fa8c', '#ffb86c', '#ff5555', '#bd93f9']
@@ -15,19 +49,17 @@ const App = {
         ThemeSwitcher.init();
         App.attachEventListeners();
         App.checkInitialState();
-        EditableSection.init('atuacoes', 'principalAtuacoesData');
+        EditableSection.init('atuacoes', 'principalAtuaacoesData');
         EditableSection.init('desenvolvimento', 'meuDesenvolvimentoData');
-        GeminiAI.init();
-        App.adjustAIPanelHeight(); 
     },
 
     checkInitialState: function () {
         try {
-            const storedData = localStorage.getItem('dashboardData');
+            const storedRawData = localStorage.getItem('rawDashboardData');
             const storedUserInfo = localStorage.getItem('userInfo');
 
-            if (storedData && storedUserInfo) {
-                App.loadDashboard(JSON.parse(storedData), JSON.parse(storedUserInfo));
+            if (storedRawData && storedUserInfo) {
+                App.initializeDashboard(JSON.parse(storedRawData), JSON.parse(storedUserInfo));
             } else {
                 App.openModal('setupModal');
             }
@@ -54,6 +86,39 @@ const App = {
                 btn.addEventListener('click', () => App.closeModal(modalId));
             }
         });
+
+        document.querySelector('.file-controls').addEventListener('change', (e) => {
+            if (e.target && e.target.id === 'monthFilter') {
+                App.data.currentFilter = e.target.value;
+                App.updateDashboard();
+            }
+        });
+    },
+
+    initializeDashboard: function (rawData, userInfo) {
+        App.data.fullRawData = rawData;
+        App.displayUserInfo(userInfo);
+        UI.createMonthFilter(App.data.fullRawData);
+        App.updateDashboard();
+        App.loadProfilePicture();
+        App.initializeChartsDragAndDrop();
+        App.initializeMetricsDragAndDrop();
+        App.restoreMetricsOrder();
+    },
+
+    updateDashboard: function () {
+        const filter = App.data.currentFilter;
+        let filteredData;
+
+        if (filter === 'all') {
+            filteredData = App.data.fullRawData;
+        } else {
+            filteredData = App.data.fullRawData.filter(row => row[App.CONFIG.MONTH_COLUMN_NAME] === filter);
+        }
+
+        const stats = App.processData(filteredData);
+        App.data.stats = stats;
+        App.displayData(stats, filter);
     },
 
     handleMouseMove: function (e) {
@@ -62,17 +127,6 @@ const App = {
         const y = Math.round((clientY / window.innerHeight) * 100);
         document.body.style.setProperty('--mouse-x', `${x}%`);
         document.body.style.setProperty('--mouse-y', `${y}%`);
-    },
-
-    loadDashboard: function (data, userInfo) {
-        App.data.stats = data;
-        App.displayUserInfo(userInfo);
-        App.displayData(data);
-        App.loadProfilePicture();
-        App.initializeChartsDragAndDrop();
-        App.initializeMetricsDragAndDrop();
-        App.restoreMetricsOrder();
-        App.adjustAIPanelHeight(); // <-- CORREÇÃO
     },
 
     handleFileSelect: function (event) {
@@ -87,15 +141,14 @@ const App = {
         const csvFile = document.getElementById('csvFileInputModal').files[0];
         if (!userName || !userRole || !csvFile) { return alert("Preencha todos os campos."); }
         const userInfo = { name: userName, role: userRole };
-        localStorage.setItem('userInfo', JSON.stringify(userInfo));
         const reader = new FileReader();
         reader.onload = function (e) {
             try {
-                const data = App.parseCSV(e.target.result);
-                const stats = App.processData(data);
-                localStorage.setItem('dashboardData', JSON.stringify(stats));
+                const rawData = App.parseCSV(e.target.result);
+                localStorage.setItem('rawDashboardData', JSON.stringify(rawData));
+                localStorage.setItem('userInfo', JSON.stringify(userInfo));
                 App.closeModal('setupModal');
-                App.loadDashboard(stats, userInfo);
+                App.initializeDashboard(rawData, userInfo);
             } catch (err) {
                 alert("Erro ao processar o arquivo CSV.");
                 console.error("Erro no CSV:", err);
@@ -160,7 +213,7 @@ const App = {
         };
     },
 
-    displayData: function (stats) {
+    displayData: function (stats, filter) {
         document.getElementById('totalCards').textContent = stats.totalCards;
         document.getElementById('avgPerDay').textContent = stats.avgPerDay;
         document.getElementById('principalTagValue').textContent = stats.principalTag;
@@ -168,7 +221,7 @@ const App = {
         document.getElementById('principalWorkItemLabel').textContent = `Principal Item (${stats.principalWorkItem.name})`;
         document.getElementById('escalonadoValue').textContent = stats.escalonadoCount;
 
-        App.renderCharts(stats);
+        App.renderCharts(stats, filter);
     },
 
     clearAllData: function (confirmFirst) {
@@ -189,29 +242,71 @@ const App = {
             modal.classList.add('modal--hidden');
         }
     },
+renderCharts: function (stats, filter) {
+    Object.values(App.charts).forEach(chart => chart?.destroy());
+    const isDark = document.body.classList.contains('dark-theme');
+    const gridColor = isDark ? 'rgba(248, 248, 242, 0.1)' : 'rgba(0, 0, 0, 0.1)';
+    const textColor = isDark ? '#f8f8f2' : '#333';
+    const chartColors = isDark ? App.CONFIG.CHART_COLORS.dark : App.CONFIG.CHART_COLORS.light;
+    const period = filter === 'all' ? 'Geral' : filter;
 
-    renderCharts: function (stats) {
-        Object.values(App.charts).forEach(chart => chart?.destroy());
-        const isDark = document.body.classList.contains('dark-theme');
-        const gridColor = isDark ? 'rgba(248, 248, 242, 0.1)' : 'rgba(0, 0, 0, 0.1)';
-        const textColor = isDark ? '#f8f8f2' : '#333';
-        const chartColors = isDark ? App.CONFIG.CHART_COLORS.dark : App.CONFIG.CHART_COLORS.light;
-        const chartOptions = {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
-            scales: {
-                x: { ticks: { color: textColor }, grid: { color: gridColor } },
-                y: { ticks: { color: textColor }, grid: { color: gridColor } }
-            }
-        };
-        const ctxStatus = document.getElementById('statusChart').getContext('2d');
-        App.charts.status = new Chart(ctxStatus, { type: 'doughnut', data: { labels: Object.keys(stats.byStatus), datasets: [{ data: Object.values(stats.byStatus), backgroundColor: chartColors }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: textColor } } } } });
-        const ctxTags = document.getElementById('tagsChart').getContext('2d');
-        App.charts.tags = new Chart(ctxTags, { type: 'bar', data: { labels: Object.keys(stats.byTags), datasets: [{ data: Object.values(stats.byTags), backgroundColor: isDark ? '#50fa7b' : '#28a745' }] }, options: { ...chartOptions, indexAxis: 'y' } });
-        const ctxWorkItem = document.getElementById('workItemChart').getContext('2d');
-        App.charts.workItem = new Chart(ctxWorkItem, { type: 'bar', data: { labels: Object.keys(stats.byWorkItem), datasets: [{ data: Object.values(stats.byWorkItem), backgroundColor: chartColors }] }, options: chartOptions });
-    },
+    document.querySelector('#status-chart-card .card-title').textContent = `Quantidade por Status (${period})`;
+    document.querySelector('#work-item-chart-card .card-title').textContent = `Quantidade por Tipo de Item (${period})`;
+    document.querySelector('#tags-chart-card .card-title').textContent = `Principais Tags (${period})`;
+
+    const chartOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+            x: { ticks: { color: textColor }, grid: { color: gridColor } },
+            y: { ticks: { color: textColor }, grid: { color: gridColor } }
+        }
+    };
+
+    // Gráfico de Status (sem alteração)
+    const ctxStatus = document.getElementById('statusChart').getContext('2d');
+    App.charts.status = new Chart(ctxStatus, { type: 'doughnut', data: { labels: Object.keys(stats.byStatus), datasets: [{ data: Object.values(stats.byStatus), backgroundColor: chartColors }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top', labels: { color: textColor } } } } });
+
+    // --- LÓGICA DE FILTRO E ALTURA PARA O GRÁFICO DE TAGS ---
+    const tagsContainer = document.getElementById('tags-chart-card');
+    
+    // 1. FILTRA para incluir apenas tags com 2 ou mais, DEPOIS ordena
+    const filteredAndSortedTags = Object.entries(stats.byTags)
+        .filter(([, count]) => count >= 2) // <-- FILTRO ADICIONADO AQUI
+        .sort(([, a], [, b]) => b - a);
+
+    const sortedTagLabels = filteredAndSortedTags.map(item => item[0]);
+    const sortedTagData = filteredAndSortedTags.map(item => item[1]);
+
+    // 2. Calcula a altura dinâmica com base nos dados JÁ FILTRADOS
+    const pixelsPerTag = 35;
+    const verticalPadding = 100;
+    const minHeight = 450;
+    const dynamicHeight = (sortedTagData.length * pixelsPerTag) + verticalPadding;
+    const finalHeight = Math.max(minHeight, dynamicHeight);
+
+    tagsContainer.style.height = `${finalHeight}px`;
+
+    const tagColors = generateGreenShades(sortedTagData);
+    const ctxTags = document.getElementById('tagsChart').getContext('2d');
+    App.charts.tags = new Chart(ctxTags, {
+        type: 'bar',
+        data: {
+            labels: sortedTagLabels,
+            datasets: [{
+                data: sortedTagData,
+                backgroundColor: tagColors
+            }]
+        },
+        options: { ...chartOptions, indexAxis: 'y' }
+    });
+    // --- FIM DA LÓGICA ---
+
+    // Gráfico de Work Item (sem alteração)
+    const ctxWorkItem = document.getElementById('workItemChart').getContext('2d');
+    App.charts.workItem = new Chart(ctxWorkItem, { type: 'bar', data: { labels: Object.keys(stats.byWorkItem), datasets: [{ data: Object.values(stats.byWorkItem), backgroundColor: chartColors }] }, options: chartOptions });
+},
 
     initializeChartsDragAndDrop: function () {
         const container = document.getElementById('charts-container');
@@ -258,28 +353,30 @@ const App = {
     displayProfilePicture: function (imageUrl) {
         document.getElementById('profilePicContainer').innerHTML = `<img src="${imageUrl}" alt="Foto de Perfil">`;
     },
+};
 
-    adjustAIPanelHeight: function() {
-        const header = document.querySelector('.header');
-        const fileControls = document.querySelector('.file-controls');
-        const metricsGrid = document.getElementById('metrics-grid');
-        const portalsGrid = document.querySelector('.portals-grid');
-        const container = document.querySelector('.container');
-        if (!header || !fileControls || !metricsGrid || !portalsGrid || !container) {
-            return;
-        }
-        const containerStyle = window.getComputedStyle(container);
-        const gridGap = parseFloat(containerStyle.gap) || 20;
-        const totalHeight = header.offsetHeight +
-                            fileControls.offsetHeight +
-                            metricsGrid.offsetHeight +
-                            portalsGrid.offsetHeight +
-                            (gridGap * 3);
-        const aiPanel = document.getElementById('gemini-ai-panel');
-        if (aiPanel) {
-            aiPanel.style.height = `${totalHeight}px`;
-        }
-    },
+const UI = {
+    createMonthFilter: function (rawData) {
+        const container = document.querySelector('.file-controls');
+        const oldFilter = document.getElementById('filters-container');
+        if (oldFilter) oldFilter.remove();
+
+        const months = [...new Set(rawData.map(row => row[App.CONFIG.MONTH_COLUMN_NAME]).filter(Boolean))].sort();
+        if (months.length === 0) return;
+
+        const filterWrapper = document.createElement('div');
+        filterWrapper.id = 'filters-container';
+        const label = document.createElement('label');
+        label.htmlFor = 'monthFilter';
+        label.textContent = 'Filtrar Mês:';
+        const select = document.createElement('select');
+        select.id = 'monthFilter';
+        select.innerHTML = `<option value="all">Visão Geral</option>${months.map(m => `<option value="${m}">${m}</option>`).join('')}`;
+
+        filterWrapper.appendChild(label);
+        filterWrapper.appendChild(select);
+        container.appendChild(filterWrapper);
+    }
 };
 
 const ThemeSwitcher = {
@@ -300,7 +397,7 @@ const ThemeSwitcher = {
         }
         localStorage.setItem('theme', theme);
         if (App.data && App.data.stats) {
-            App.renderCharts(App.data.stats);
+            App.renderCharts(App.data.stats, App.data.currentFilter);
         }
     },
     toggleTheme: function () {
@@ -356,23 +453,6 @@ const EditableSection = {
             }
         });
 
-        const aiBtn = section.elements.editor.wrapper.querySelector('.ai-improve-btn');
-        if (aiBtn) {
-            aiBtn.addEventListener('click', async () => {
-                const contentEditor = section.elements.editor.content;
-                const originalText = contentEditor.innerHTML;
-                if (originalText.trim() === '') {
-                    alert('Por favor, escreva algo antes de pedir ajuda à IA.');
-                    return;
-                }
-                aiBtn.disabled = true;
-                aiBtn.textContent = 'Aprimorando...';
-                const improvedText = await GeminiAI.improveText(originalText);
-                contentEditor.innerHTML = improvedText;
-                aiBtn.disabled = false;
-                aiBtn.textContent = '✨ Melhorar com IA';
-            });
-        }
     },
     renderList: function (section) {
         section.elements.list.innerHTML = '';
@@ -420,105 +500,6 @@ const EditableSection = {
         const viewWindow = window.open('', '_blank');
         viewWindow.document.write(`<html><head><title>${item.title}</title><style>body{font-family:sans-serif;padding:2rem;color:${document.body.classList.contains('dark-theme') ? '#f8f8f2' : '#333'};background:${document.body.classList.contains('dark-theme') ? '#282a36' : '#fff'};} img {max-width: 100%; height: auto;}</style></head><body><h1>${item.title}</h1><hr><div>${item.content}</div></body></html>`);
         viewWindow.document.close();
-    }
-};
-
-const GeminiAI = {
-    API_KEY: "AIzaSyC0i1CDQ44O4P94L_a9fZxD9IsY4WWZhbY",
-    model: null,
-
-    init: function () {
-        try {
-            if (!window.GoogleGenerativeAI) {
-                console.error("SDK do Google AI não foi carregado.");
-                return;
-            }
-            const genAI = new window.GoogleGenerativeAI(this.API_KEY);
-            this.model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
-
-            document.getElementById('ai-prompt-form').addEventListener('submit', this.handlePromptSubmit);
-        } catch (error) {
-            console.error("Erro ao inicializar o Gemini AI:", error);
-            this.addMessageToChat("Erro ao inicializar a IA. Verifique a API Key e o console.", "ai");
-        }
-    },
-
-    handlePromptSubmit: async function (event) {
-        event.preventDefault();
-        const promptInput = document.getElementById('ai-prompt-input');
-        const userPrompt = promptInput.value.trim();
-
-        if (!userPrompt) return;
-
-        GeminiAI.addMessageToChat(userPrompt, "user");
-        promptInput.value = '';
-
-        const storedData = localStorage.getItem('dashboardData');
-        if (!storedData) {
-            GeminiAI.addMessageToChat("Não há dados carregados no dashboard. Por favor, configure o dashboard no modal inicial primeiro.", "ai");
-            return;
-        }
-
-        const thinkingMessage = GeminiAI.addMessageToChat("Analisando...", "ai");
-        const context = JSON.stringify(JSON.parse(storedData));
-
-        const fullPrompt = `Você é um assistente de IA amigável e proativo, integrado a um dashboard de performance profissional. Sua principal função é analisar os dados do dashboard fornecidos em formato JSON.
-
-Siga estas regras:
-1. Se a pergunta do usuário for uma saudação ou conversa casual que não se relacione com os dados (ex: 'oi', 'tudo bem?', 'obrigado'), responda de forma educada e cordial, e pergunte como você pode ajudar com a análise dos dados.
-2. Se a pergunta for sobre os dados, use o JSON abaixo para fornecer uma resposta clara e direta.
-3. Se a pergunta for muito vaga ou não estiver claro como ela se relaciona com os dados (ex: 'teste'), peça educadamente por mais detalhes ou sugira exemplos de perguntas que você pode responder.
-
-Dados para análise:
-${context}
-
-Pergunta do usuário:
-"${userPrompt}"
-`;
-
-        try {
-            const result = await GeminiAI.model.generateContent(fullPrompt);
-            const response = await result.response;
-            const text = response.text();
-
-            thinkingMessage.textContent = text;
-
-        } catch (error) {
-            console.error("Erro na API do Gemini:", error);
-            thinkingMessage.textContent = "Desculpe, ocorreu um erro ao tentar obter a resposta. Verifique o console para mais detalhes.";
-        }
-    },
-
-    addMessageToChat: function (text, sender) {
-        const chatHistory = document.getElementById('ai-chat-history');
-        const messageDiv = document.createElement('div');
-        messageDiv.className = sender === 'user' ? 'user-message' : 'ai-message';
-        messageDiv.textContent = text;
-        chatHistory.appendChild(messageDiv);
-
-        chatHistory.scrollTop = chatHistory.scrollHeight;
-
-        return messageDiv;
-    },
-
-    improveText: async function (originalText) {
-        const fullPrompt = `Você é um assistente de escrita especialista em comunicação profissional. Sua tarefa é reescrever o texto a seguir para que ele soe mais claro, profissional e impactante, ideal para um relatório de performance ou plano de desenvolvimento.
-        Mantenha o sentido e as informações originais, mas melhore a gramática, o tom e a estrutura.
-        Formate a resposta usando tags HTML simples se necessário (como <b>, <i>, <ul>, <li>).
-        Retorne apenas o texto reescrito, sem introduções como "Aqui está o texto reescrito:".
-
-        Texto original para reescrever:
-        "${originalText}"
-        `;
-
-        try {
-            const result = await this.model.generateContent(fullPrompt);
-            const response = await result.response;
-            return response.text();
-        } catch (error) {
-            console.error("Erro na API do Gemini ao tentar melhorar o texto:", error);
-            return originalText;
-        }
     }
 };
 

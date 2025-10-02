@@ -256,16 +256,16 @@ body:not(.dark-theme) .file-label:hover {
 }
 
 .container {
-    max-width: 1600px;
+    max-width: 1200px;
     margin: auto;
     display: grid;
     gap: 20px;
-    grid-template-columns: 1fr 380px;
+    grid-template-columns: 1fr;
     align-items: start;
 }
 
 .header, .file-controls, .metrics-grid, .portals-grid, .charts-container {
-    grid-column: 1 / 2;
+    grid-column: 1 / -1;
 }
 
 .header {
@@ -390,24 +390,42 @@ body.dark-theme .portal-card:hover {
     font-size: 1.5em;
 }
 
+/* --- INÍCIO DAS REGRAS DE ALTURA ATUALIZADAS --- */
 .charts-container {
     display: flex;
     flex-wrap: wrap;
     gap: 20px;
+    align-items: flex-start; /* Alinha os itens no topo */
 }
 
 .chart-card {
     min-width: 300px;
     cursor: grab;
+    display: flex;
+    flex-direction: column;
 }
 
 .chart-card.small {
     flex: 1 1 calc(50% - 20px);
+    min-height: 400px; /* Garante uma altura mínima, mas permite crescer */
+}
+
+/* Limita a altura do canvas DENTRO dos cards pequenos */
+.chart-card.small canvas {
+    max-height: 350px;
 }
 
 .chart-card.large {
     flex: 1 1 100%;
 }
+
+/* EXCEÇÃO: Permite que APENAS o canvas do gráfico de tags cresça livremente */
+#tags-chart-card canvas {
+    height: 100%;
+    width: 100%;
+}
+/* --- FIM DAS REGRAS DE ALTURA --- */
+
 
 .card-title {
     margin-top: 0;
@@ -508,9 +526,10 @@ body.dark-theme .portal-card:hover {
 
 .file-controls {
     display: flex;
-    gap: 10px;
+    gap: 20px;
     align-items: center;
     flex-wrap: wrap;
+    justify-content: space-between;
 }
 
 .file-controls button {
@@ -528,14 +547,6 @@ body.dark-theme .file-controls button.secondary:hover {
 
 body:not(.dark-theme) .file-controls button.secondary:hover {
     background-color: #5a6268;
-}
-
-.chart-card canvas {
-    max-height: 400px;
-}
-
-.chart-card.large canvas {
-    max-height: 500px;
 }
 
 .theme-toggle-btn {
@@ -562,93 +573,6 @@ body:not(.dark-theme) .file-controls button.secondary:hover {
     transform: scale(1.1);
 }
 
-#gemini-ai-panel {
-    grid-column: 2 / 3;
-    grid-row: 1 / 5;
-    display: flex;
-    flex-direction: column;
-}
-
-.ai-sub-title {
-    font-size: 0.9em;
-    color: var(--text-color-secondary);
-    margin-top: -15px;
-    margin-bottom: 15px;
-}
-
-#ai-chat-history {
-    flex-grow: 1;
-    overflow-y: auto;
-    min-height: 0;
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    padding: 10px;
-    margin-bottom: 10px;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-}
-
-.user-message,
-.ai-message {
-    padding: 8px 12px;
-    border-radius: 12px;
-    max-width: 90%;
-    line-height: 1.4;
-    word-wrap: break-word;
-}
-
-.user-message {
-    background-color: var(--primary-color);
-    color: white;
-    align-self: flex-end;
-    border-bottom-right-radius: 2px;
-}
-
-.ai-message {
-    background-color: var(--background-color);
-    color: var(--text-color);
-    align-self: flex-start;
-    border-bottom-left-radius: 2px;
-}
-
-#ai-prompt-form {
-    display: flex;
-    gap: 10px;
-}
-
-#ai-prompt-form textarea {
-    flex-grow: 1;
-    padding: 10px;
-    border-radius: 8px;
-    border: 1px solid var(--border-color);
-    background-color: var(--surface-color);
-    color: var(--text-color);
-    resize: none;
-    font-family: inherit;
-    font-size: 1em;
-    height: 50px;
-}
-
-#ai-prompt-form button {
-    background-color: var(--primary-color);
-    color: white;
-    border: none;
-    border-radius: 8px;
-    padding: 0 20px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background-color 0.2s;
-}
-
-body:not(.dark-theme) #ai-prompt-form button:hover {
-    background-color: #0056b3;
-}
-
-body.dark-theme #ai-prompt-form button:hover {
-    background-color: #9670d3;
-}
-
 .fullscreen-modal .charts-container {
     max-width: 1200px;
     margin: 20px auto;
@@ -673,4 +597,27 @@ body.dark-theme .editor-toolbar .ai-improve-btn:hover {
 .editor-toolbar .ai-improve-btn:disabled {
     cursor: wait;
     opacity: 0.7;
+}
+
+#filters-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+#filters-container label {
+    font-weight: 500;
+    color: var(--text-color-secondary);
+}
+
+#filters-container select {
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    background-color: var(--surface-color);
+    color: var(--text-color);
+    font-family: inherit;
+    font-size: 0.95em;
+    cursor: pointer;
+    min-width: 150px;
 }
