@@ -48,9 +48,8 @@ body.dark-theme {
 
 
 .main-title {
-    text-align: center;
     color: var(--primary-color);
-    margin-bottom: 20px;
+    margin: 0; /* Margin ajustada */
 }
 
 .modal {
@@ -264,7 +263,14 @@ body:not(.dark-theme) .file-label:hover {
     align-items: start;
 }
 
-.header, .file-controls, .metrics-grid, .portals-grid, .charts-container {
+.main-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    grid-column: 1 / -1;
+}
+
+.header, .metrics-grid, .portals-grid, .charts-container {
     grid-column: 1 / -1;
 }
 
@@ -334,11 +340,9 @@ body:not(.dark-theme) .file-label:hover {
 .metric-card {
     text-align: center;
     flex: 1 1 150px;
-    cursor: grab;
-}
-
-.metric-card.sortable-chosen {
-    cursor: grabbing;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
 }
 
 .metric-card .value {
@@ -390,12 +394,11 @@ body.dark-theme .portal-card:hover {
     font-size: 1.5em;
 }
 
-/* --- INÍCIO DAS REGRAS DE ALTURA ATUALIZADAS --- */
 .charts-container {
     display: flex;
     flex-wrap: wrap;
     gap: 20px;
-    align-items: flex-start; /* Alinha os itens no topo */
+    align-items: flex-start;
 }
 
 .chart-card {
@@ -407,25 +410,22 @@ body.dark-theme .portal-card:hover {
 
 .chart-card.small {
     flex: 1 1 calc(50% - 20px);
-    min-height: 400px; /* Garante uma altura mínima, mas permite crescer */
+    min-height: 400px;
 }
 
-/* Limita a altura do canvas DENTRO dos cards pequenos */
 .chart-card.small canvas {
     max-height: 350px;
 }
 
 .chart-card.large {
     flex: 1 1 100%;
+    min-height: 450px;
 }
 
-/* EXCEÇÃO: Permite que APENAS o canvas do gráfico de tags cresça livremente */
 #tags-chart-card canvas {
     height: 100%;
     width: 100%;
 }
-/* --- FIM DAS REGRAS DE ALTURA --- */
-
 
 .card-title {
     margin-top: 0;
@@ -524,35 +524,8 @@ body.dark-theme .portal-card:hover {
     margin-left: 15px;
 }
 
-.file-controls {
-    display: flex;
-    gap: 20px;
-    align-items: center;
-    flex-wrap: wrap;
-    justify-content: space-between;
-}
-
-.file-controls button {
-    padding: 10px 15px;
-    text-align: center;
-}
-
-.file-controls button.secondary {
-    background-color: var(--secondary-color);
-}
-
-body.dark-theme .file-controls button.secondary:hover {
-    background-color: #505d84;
-}
-
-body:not(.dark-theme) .file-controls button.secondary:hover {
-    background-color: #5a6268;
-}
-
-.theme-toggle-btn {
+.fixed-btn {
     position: fixed;
-    bottom: 20px;
-    right: 20px;
     width: 50px;
     height: 50px;
     border-radius: 50%;
@@ -569,8 +542,28 @@ body:not(.dark-theme) .file-controls button.secondary:hover {
     transition: transform 0.2s ease, background-color 0.3s ease;
 }
 
-.theme-toggle-btn:hover {
+.fixed-btn:hover {
     transform: scale(1.1);
+}
+
+.fixed-btn--bottom-right {
+    bottom: 20px;
+    right: 20px;
+}
+
+.fixed-btn--bottom-left {
+    bottom: 20px;
+    left: 20px;
+    background-color: var(--secondary-color);
+    color: white;
+}
+
+body:not(.dark-theme) .fixed-btn--bottom-left:hover {
+    background-color: #5a6268;
+}
+
+body.dark-theme .fixed-btn--bottom-left:hover {
+    background-color: #505d84;
 }
 
 .fullscreen-modal .charts-container {
@@ -578,36 +571,15 @@ body:not(.dark-theme) .file-controls button.secondary:hover {
     margin: 20px auto;
 }
 
-.editor-toolbar .ai-improve-btn {
-    margin-left: auto;
-    background-color: var(--primary-color);
-    color: white;
-    font-weight: 500;
-    padding: 5px 12px;
-}
-
-body:not(.dark-theme) .editor-toolbar .ai-improve-btn:hover {
-    background-color: #0056b3;
-}
-
-body.dark-theme .editor-toolbar .ai-improve-btn:hover {
-    background-color: #9670d3;
-}
-
-.editor-toolbar .ai-improve-btn:disabled {
-    cursor: wait;
-    opacity: 0.7;
-}
-
-#filters-container {
+#filters-placeholder {
     display: flex;
     align-items: center;
-    gap: 10px;
 }
 
 #filters-container label {
     font-weight: 500;
     color: var(--text-color-secondary);
+    margin-right: 10px;
 }
 
 #filters-container select {
@@ -620,4 +592,63 @@ body.dark-theme .editor-toolbar .ai-improve-btn:hover {
     font-size: 0.95em;
     cursor: pointer;
     min-width: 150px;
+}
+
+.double-width-card {
+    flex: 1 1 320px;
+    padding: 10px 20px;
+}
+
+.combined-metric-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 20px;
+}
+
+.metric-card.isolated {
+    box-shadow: none;
+    border: none;
+    padding: 10px 0;
+    text-align: left;
+    flex-shrink: 0;
+    min-width: 130px;
+}
+
+.metric-card.isolated .value {
+    justify-content: flex-start;
+}
+
+.dashboard-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85em;
+}
+
+.dashboard-table th, .dashboard-table td {
+    text-align: left;
+    padding: 6px 4px;
+    border-bottom: 1px solid var(--border-color);
+    text-transform: capitalize;
+    white-space: nowrap;
+}
+
+.dashboard-table tr:last-child td {
+    border-bottom: none;
+}
+
+.dashboard-table th {
+    font-weight: 600;
+    color: var(--text-color-secondary);
+}
+
+.dashboard-table th:nth-child(2), .dashboard-table td:nth-child(2) {
+    text-align: center;
+    width: 40px;
+}
+
+.dashboard-table td:nth-child(2) {
+    font-weight: 700;
+    font-size: 1.1em;
+    color: var(--primary-color);
 }

@@ -38,7 +38,8 @@ const App = {
     },
     CONFIG: {
         WORKING_DAYS: 21,
-        MONTH_COLUMN_NAME: 'Mês',
+        MONTH_COLUMN_NAME: 'Created Date',
+        CLIENT_COLUMN_NAME: 'Cliente',
         CHART_COLORS: {
             light: ['#007bff', '#17a2b8', '#28a745', '#ffc107', '#dc3545', '#6c757d'],
             dark: ['#ff79c6', '#8be9fd', '#50fa7b', '#f1fa8c', '#ffb86c', '#ff5555', '#bd93f9']
@@ -73,7 +74,7 @@ const App = {
         document.body.addEventListener('mousemove', App.handleMouseMove);
         document.getElementById('csvFileInputModal').addEventListener('change', App.handleFileSelect);
         document.getElementById('saveAndStartBtn').addEventListener('click', App.handleSetupSave);
-        document.getElementById('clearDataBtn').addEventListener('click', () => App.clearAllData(true));
+        document.getElementById('reset-btn').addEventListener('click', () => App.clearAllData(true)); // Botão de limpar atualizado
         document.getElementById('profilePicContainer').addEventListener('click', () => document.getElementById('profilePicInput').click());
         document.getElementById('profilePicInput').addEventListener('change', App.handleProfilePicSelect);
         document.getElementById('openChartsModal').addEventListener('click', () => App.openModal('chartsModal'));
@@ -87,7 +88,8 @@ const App = {
             }
         });
 
-        document.querySelector('.file-controls').addEventListener('change', (e) => {
+        // O listener do filtro agora escuta o novo placeholder
+        document.getElementById('filters-placeholder').addEventListener('change', (e) => {
             if (e.target && e.target.id === 'monthFilter') {
                 App.data.currentFilter = e.target.value;
                 App.updateDashboard();
@@ -102,8 +104,6 @@ const App = {
         App.updateDashboard();
         App.loadProfilePicture();
         App.initializeChartsDragAndDrop();
-        App.initializeMetricsDragAndDrop();
-        App.restoreMetricsOrder();
     },
 
     updateDashboard: function () {
@@ -118,7 +118,7 @@ const App = {
 
         const stats = App.processData(filteredData);
         App.data.stats = stats;
-        App.displayData(stats, filter);
+        App.displayData(stats);
     },
 
     handleMouseMove: function (e) {
@@ -174,28 +174,58 @@ const App = {
     },
 
     processData: function (data) {
-        const countBy = (key) => {
-            const counts = {};
-            data.forEach(item => {
-                let value = item[key] || 'Sem Categoria';
-                if (key === 'Tags' && value !== 'Sem Categoria') {
-                    const tags = value.split(',').map(tag => tag.trim()).filter(Boolean);
-                    tags.forEach(tag => { counts[tag] = (counts[tag] || 0) + 1; });
-                } else {
-                    let finalValue = value.trim() === '' ? 'Sem Categoria' : value;
-                    counts[finalValue] = (counts[finalValue] || 0) + 1;
-                }
-            });
-            return counts;
-        };
         const findMax = (obj) => {
             if (Object.keys(obj).length === 0) return [null, 0];
             return Object.entries(obj).reduce((a, b) => a[1] > b[1] ? a : b);
         };
 
-        const byStatus = countBy('State');
-        const byTags = countBy('Tags');
-        const byWorkItem = countBy('Work Item Type');
+        const normalizeClientName = (name) => {
+            if (typeof name !== 'string' || !name.trim()) return 'SEM CATEGORIA';
+            return name.trim().toUpperCase().split(' ')[0];
+        };
+
+        const dataByClient = {};
+        data.forEach(item => {
+            const clientName = normalizeClientName(item[App.CONFIG.CLIENT_COLUMN_NAME]);
+            if (!dataByClient[clientName]) {
+                dataByClient[clientName] = [];
+            }
+            dataByClient[clientName].push(item);
+        });
+
+        const byStatus = {};
+        const byTags = {};
+        const byWorkItem = {};
+        data.forEach(item => {
+            const status = (item.State || 'SEM CATEGORIA').toUpperCase();
+            const workItem = (item['Work Item Type'] || 'SEM CATEGORIA').toUpperCase();
+            byStatus[status] = (byStatus[status] || 0) + 1;
+            byWorkItem[workItem] = (byWorkItem[workItem] || 0) + 1;
+
+            const tags = (item.Tags || '').split(',').map(t => t.trim().toUpperCase()).filter(Boolean);
+            tags.forEach(tag => byTags[tag] = (byTags[tag] || 0) + 1);
+        });
+        
+        const filteredClients = Object.fromEntries(Object.entries(dataByClient).filter(([key]) => key !== 'GERAL' && key !== 'SEM CATEGORIA'));
+        const [principalClienteName] = findMax(Object.fromEntries(Object.entries(filteredClients).map(([name, items]) => [name, items.length])));
+
+        const top5ClientesData = Object.entries(dataByClient)
+            .map(([name, items]) => ({ name, count: items.length, items }))
+            .sort((a, b) => b.count - a.count)
+            .slice(0, 5)
+            .map(client => {
+                const clientWorkItems = {};
+                const clientTags = {};
+                client.items.forEach(item => {
+                    const workItem = (item['Work Item Type'] || 'SEM CATEGORIA').toUpperCase();
+                    clientWorkItems[workItem] = (clientWorkItems[workItem] || 0) + 1;
+                    const tags = (item.Tags || '').split(',').map(t => t.trim().toUpperCase()).filter(Boolean);
+                    tags.forEach(tag => clientTags[tag] = (clientTags[tag] || 0) + 1);
+                });
+                const [topWorkItem] = findMax(clientWorkItems);
+                const [topTag] = findMax(clientTags);
+                return { name: client.name, count: client.count, topWorkItem, topTag };
+            });
 
         const [principalWorkItemName, principalWorkItemCount] = findMax(byWorkItem);
         const [principalTagName] = findMax(byTags);
@@ -208,20 +238,24 @@ const App = {
                 name: principalWorkItemName || 'N/A',
                 percentage: data.length > 0 ? ((principalWorkItemCount / data.length) * 100).toFixed(1) : 0
             },
-            escalonadoCount: byStatus['Escalonado Engenharia'] || 0,
-            principalTag: principalTagName || 'N/A'
+            escalonadoCount: byStatus['ESCALONADO ENGENHARIA'] || 0,
+            principalTag: principalTagName || 'N/A',
+            principalCliente: principalClienteName || 'N/A',
+            top5Clientes: top5ClientesData
         };
     },
 
-    displayData: function (stats, filter) {
+    displayData: function (stats) {
         document.getElementById('totalCards').textContent = stats.totalCards;
         document.getElementById('avgPerDay').textContent = stats.avgPerDay;
         document.getElementById('principalTagValue').textContent = stats.principalTag;
         document.getElementById('principalWorkItemValue').textContent = `${stats.principalWorkItem.percentage}%`;
         document.getElementById('principalWorkItemLabel').textContent = `Principal Item (${stats.principalWorkItem.name})`;
         document.getElementById('escalonadoValue').textContent = stats.escalonadoCount;
+        document.getElementById('principalClienteValue').textContent = stats.principalCliente;
 
-        App.renderCharts(stats, filter);
+        App.renderCharts(stats, App.data.currentFilter);
+        UI.renderTopClientsTable(stats.top5Clientes);
     },
 
     clearAllData: function (confirmFirst) {
@@ -242,99 +276,60 @@ const App = {
             modal.classList.add('modal--hidden');
         }
     },
-renderCharts: function (stats, filter) {
-    Object.values(App.charts).forEach(chart => chart?.destroy());
-    const isDark = document.body.classList.contains('dark-theme');
-    const gridColor = isDark ? 'rgba(248, 248, 242, 0.1)' : 'rgba(0, 0, 0, 0.1)';
-    const textColor = isDark ? '#f8f8f2' : '#333';
-    const chartColors = isDark ? App.CONFIG.CHART_COLORS.dark : App.CONFIG.CHART_COLORS.light;
-    const period = filter === 'all' ? 'Geral' : filter;
+    renderCharts: function (stats, filter) {
+        Object.values(App.charts).forEach(chart => chart?.destroy());
+        const isDark = document.body.classList.contains('dark-theme');
+        const gridColor = isDark ? 'rgba(248, 248, 242, 0.1)' : 'rgba(0, 0, 0, 0.1)';
+        const textColor = isDark ? '#f8f8f2' : '#333';
+        const chartColors = isDark ? App.CONFIG.CHART_COLORS.dark : App.CONFIG.CHART_COLORS.light;
+        const period = filter === 'all' ? 'Geral' : filter;
 
-    document.querySelector('#status-chart-card .card-title').textContent = `Quantidade por Status (${period})`;
-    document.querySelector('#work-item-chart-card .card-title').textContent = `Quantidade por Tipo de Item (${period})`;
-    document.querySelector('#tags-chart-card .card-title').textContent = `Principais Tags (${period})`;
+        document.querySelector('#status-chart-card .card-title').textContent = `Quantidade por Status (${period})`;
+        document.querySelector('#work-item-chart-card .card-title').textContent = `Quantidade por Tipo de Item (${period})`;
+        document.querySelector('#tags-chart-card .card-title').textContent = `Principais Tags (${period})`;
 
-    const chartOptions = {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: { legend: { display: false } },
-        scales: {
-            x: { ticks: { color: textColor }, grid: { color: gridColor } },
-            y: { ticks: { color: textColor }, grid: { color: gridColor } }
-        }
-    };
+        const chartOptions = {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                x: { ticks: { color: textColor }, grid: { color: gridColor } },
+                y: { ticks: { color: textColor }, grid: { color: gridColor } }
+            }
+        };
 
-    // Gráfico de Status (sem alteração)
-    const ctxStatus = document.getElementById('statusChart').getContext('2d');
-    App.charts.status = new Chart(ctxStatus, { type: 'doughnut', data: { labels: Object.keys(stats.byStatus), datasets: [{ data: Object.values(stats.byStatus), backgroundColor: chartColors }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top', labels: { color: textColor } } } } });
+        const ctxStatus = document.getElementById('statusChart').getContext('2d');
+        App.charts.status = new Chart(ctxStatus, { type: 'doughnut', data: { labels: Object.keys(stats.byStatus), datasets: [{ data: Object.values(stats.byStatus), backgroundColor: chartColors }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top', labels: { color: textColor } } } } });
 
-    // --- LÓGICA DE FILTRO E ALTURA PARA O GRÁFICO DE TAGS ---
-    const tagsContainer = document.getElementById('tags-chart-card');
-    
-    // 1. FILTRA para incluir apenas tags com 2 ou mais, DEPOIS ordena
-    const filteredAndSortedTags = Object.entries(stats.byTags)
-        .filter(([, count]) => count >= 2) // <-- FILTRO ADICIONADO AQUI
-        .sort(([, a], [, b]) => b - a);
+        const tagsContainer = document.getElementById('tags-chart-card');
+        const filteredAndSortedTags = Object.entries(stats.byTags)
+            .filter(([, count]) => count >= 2)
+            .sort(([, a], [, b]) => b - a);
+        const sortedTagLabels = filteredAndSortedTags.map(item => item[0]);
+        const sortedTagData = filteredAndSortedTags.map(item => item[1]);
+        const pixelsPerTag = 35;
+        const verticalPadding = 100;
+        const minHeight = 450;
+        const dynamicHeight = (sortedTagData.length * pixelsPerTag) + verticalPadding;
+        const finalHeight = Math.max(minHeight, dynamicHeight);
+        tagsContainer.style.height = `${finalHeight}px`;
+        const tagColors = generateGreenShades(sortedTagData);
+        const ctxTags = document.getElementById('tagsChart').getContext('2d');
+        App.charts.tags = new Chart(ctxTags, {
+            type: 'bar',
+            data: { labels: sortedTagLabels, datasets: [{ data: sortedTagData, backgroundColor: tagColors }] },
+            options: { ...chartOptions, indexAxis: 'y' }
+        });
 
-    const sortedTagLabels = filteredAndSortedTags.map(item => item[0]);
-    const sortedTagData = filteredAndSortedTags.map(item => item[1]);
-
-    // 2. Calcula a altura dinâmica com base nos dados JÁ FILTRADOS
-    const pixelsPerTag = 35;
-    const verticalPadding = 100;
-    const minHeight = 450;
-    const dynamicHeight = (sortedTagData.length * pixelsPerTag) + verticalPadding;
-    const finalHeight = Math.max(minHeight, dynamicHeight);
-
-    tagsContainer.style.height = `${finalHeight}px`;
-
-    const tagColors = generateGreenShades(sortedTagData);
-    const ctxTags = document.getElementById('tagsChart').getContext('2d');
-    App.charts.tags = new Chart(ctxTags, {
-        type: 'bar',
-        data: {
-            labels: sortedTagLabels,
-            datasets: [{
-                data: sortedTagData,
-                backgroundColor: tagColors
-            }]
-        },
-        options: { ...chartOptions, indexAxis: 'y' }
-    });
-    // --- FIM DA LÓGICA ---
-
-    // Gráfico de Work Item (sem alteração)
-    const ctxWorkItem = document.getElementById('workItemChart').getContext('2d');
-    App.charts.workItem = new Chart(ctxWorkItem, { type: 'bar', data: { labels: Object.keys(stats.byWorkItem), datasets: [{ data: Object.values(stats.byWorkItem), backgroundColor: chartColors }] }, options: chartOptions });
-},
+        const ctxWorkItem = document.getElementById('workItemChart').getContext('2d');
+        App.charts.workItem = new Chart(ctxWorkItem, { type: 'bar', data: { labels: Object.keys(stats.byWorkItem), datasets: [{ data: Object.values(stats.byWorkItem), backgroundColor: chartColors }] }, options: chartOptions });
+    },
 
     initializeChartsDragAndDrop: function () {
         const container = document.getElementById('charts-container');
-        if (container) new Sortable(container, { animation: 150, onEnd: App.saveChartOrder });
+        if (container) new Sortable(container, { animation: 150 });
     },
-    saveChartOrder: function (evt) {
-        const order = Array.from(evt.from.children).map(child => child.id);
-        localStorage.setItem('chartOrder', JSON.stringify(order));
-    },
-    initializeMetricsDragAndDrop: function () {
-        const container = document.getElementById('metrics-grid');
-        if (container) new Sortable(container, { animation: 150, onEnd: App.saveMetricsOrder });
-    },
-    saveMetricsOrder: function (evt) {
-        const order = Array.from(evt.from.children).map(child => child.id);
-        localStorage.setItem('metricsOrder', JSON.stringify(order));
-    },
-    restoreMetricsOrder: function () {
-        const savedOrder = JSON.parse(localStorage.getItem('metricsOrder'));
-        const container = document.getElementById('metrics-grid');
-        if (savedOrder && container) {
-            savedOrder.forEach(metricId => {
-                const metricElement = document.getElementById(metricId);
-                if (metricElement) container.appendChild(metricElement);
-            });
-        }
-    },
-
+    
     loadProfilePicture: function () {
         const imageUrl = localStorage.getItem('profilePicture');
         if (imageUrl) App.displayProfilePicture(imageUrl);
@@ -357,9 +352,8 @@ renderCharts: function (stats, filter) {
 
 const UI = {
     createMonthFilter: function (rawData) {
-        const container = document.querySelector('.file-controls');
-        const oldFilter = document.getElementById('filters-container');
-        if (oldFilter) oldFilter.remove();
+        const container = document.getElementById('filters-placeholder'); // Container atualizado
+        container.innerHTML = ''; // Limpa o container antes de adicionar
 
         const months = [...new Set(rawData.map(row => row[App.CONFIG.MONTH_COLUMN_NAME]).filter(Boolean))].sort();
         if (months.length === 0) return;
@@ -368,7 +362,7 @@ const UI = {
         filterWrapper.id = 'filters-container';
         const label = document.createElement('label');
         label.htmlFor = 'monthFilter';
-        label.textContent = 'Filtrar Mês:';
+        label.textContent = 'Mês:';
         const select = document.createElement('select');
         select.id = 'monthFilter';
         select.innerHTML = `<option value="all">Visão Geral</option>${months.map(m => `<option value="${m}">${m}</option>`).join('')}`;
@@ -376,6 +370,30 @@ const UI = {
         filterWrapper.appendChild(label);
         filterWrapper.appendChild(select);
         container.appendChild(filterWrapper);
+    },
+    renderTopClientsTable: function(top5Data) {
+        const container = document.getElementById('topClientsTableContainer');
+        container.innerHTML = '';
+
+        if (top5Data && top5Data.length > 0) {
+            const table = document.createElement('table');
+            table.className = 'dashboard-table';
+            
+            table.innerHTML = `<thead><tr><th>Top 5 Clientes</th><th>Qtd</th><th>Principal Item</th><th>Principal Tag</th></tr></thead>`;
+            
+            const tbody = document.createElement('tbody');
+            top5Data.forEach(item => {
+                const row = tbody.insertRow();
+                row.insertCell().textContent = (item.name || '-').toLowerCase();
+                row.insertCell().textContent = item.count || 0;
+                row.insertCell().textContent = (item.topWorkItem || '-').toLowerCase();
+                row.insertCell().textContent = (item.topTag || '-').toLowerCase();
+            });
+            table.appendChild(tbody);
+            container.appendChild(table);
+        } else {
+            container.innerHTML = '<p style="font-size: 0.9em; text-align: center;">Nenhum dado de cliente para exibir.</p>';
+        }
     }
 };
 
