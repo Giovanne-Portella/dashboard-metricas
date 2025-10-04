@@ -642,13 +642,18 @@ body.dark-theme .fixed-btn--bottom-left:hover {
     color: var(--text-color-secondary);
 }
 
-.dashboard-table th:nth-child(2), .dashboard-table td:nth-child(2) {
-    text-align: center;
-    width: 40px;
-}
-
 .dashboard-table td:nth-child(2) {
     font-weight: 700;
     font-size: 1.1em;
     color: var(--primary-color);
+}
+
+/* --- AJUSTE PARA IMAGENS DENTRO DO EDITOR --- */
+.editor-content img {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    margin: 1em auto;
+    border-radius: 8px;
+    box-shadow: var(--shadow);
 }
