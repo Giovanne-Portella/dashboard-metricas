@@ -74,7 +74,7 @@ const App = {
         document.body.addEventListener('mousemove', App.handleMouseMove);
         document.getElementById('csvFileInputModal').addEventListener('change', App.handleFileSelect);
         document.getElementById('saveAndStartBtn').addEventListener('click', App.handleSetupSave);
-        document.getElementById('reset-btn').addEventListener('click', () => App.clearAllData(true)); // Botão de limpar atualizado
+        document.getElementById('reset-btn').addEventListener('click', () => App.clearAllData(true));
         document.getElementById('profilePicContainer').addEventListener('click', () => document.getElementById('profilePicInput').click());
         document.getElementById('profilePicInput').addEventListener('change', App.handleProfilePicSelect);
         document.getElementById('openChartsModal').addEventListener('click', () => App.openModal('chartsModal'));
@@ -88,7 +88,6 @@ const App = {
             }
         });
 
-        // O listener do filtro agora escuta o novo placeholder
         document.getElementById('filters-placeholder').addEventListener('change', (e) => {
             if (e.target && e.target.id === 'monthFilter') {
                 App.data.currentFilter = e.target.value;
@@ -230,9 +229,15 @@ const App = {
         const [principalWorkItemName, principalWorkItemCount] = findMax(byWorkItem);
         const [principalTagName] = findMax(byTags);
 
+        // --- LÓGICA DA MÉDIA CORRIGIDA ---
+        const uniqueMonths = [...new Set(data.map(row => row[App.CONFIG.MONTH_COLUMN_NAME]).filter(Boolean))];
+        const numberOfMonths = uniqueMonths.length > 0 ? uniqueMonths.length : 1; // Se não houver mês, considera 1 para não dividir por 0
+        const totalWorkingDays = numberOfMonths * App.CONFIG.WORKING_DAYS;
+        const avgPerDay = totalWorkingDays > 0 ? (data.length / totalWorkingDays).toFixed(1) : '0.0';
+        
         return {
             totalCards: data.length,
-            avgPerDay: (data.length / App.CONFIG.WORKING_DAYS).toFixed(1),
+            avgPerDay: avgPerDay, // Usa a nova variável
             byStatus, byTags, byWorkItem,
             principalWorkItem: {
                 name: principalWorkItemName || 'N/A',
@@ -352,8 +357,8 @@ const App = {
 
 const UI = {
     createMonthFilter: function (rawData) {
-        const container = document.getElementById('filters-placeholder'); // Container atualizado
-        container.innerHTML = ''; // Limpa o container antes de adicionar
+        const container = document.getElementById('filters-placeholder');
+        container.innerHTML = '';
 
         const months = [...new Set(rawData.map(row => row[App.CONFIG.MONTH_COLUMN_NAME]).filter(Boolean))].sort();
         if (months.length === 0) return;
