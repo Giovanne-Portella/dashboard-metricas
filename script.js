@@ -226,18 +226,28 @@ const App = {
                 return { name: client.name, count: client.count, topWorkItem, topTag };
             });
 
+        // --- NOVO CÁLCULO PARA CLIENTE MAIS ESCALONADO ---
+        const escalatedItems = data.filter(item => (item.State || '').toUpperCase() === 'ESCALONADO ENGENHARIA');
+        const escalatedClientCounts = {};
+        escalatedItems.forEach(item => {
+            const clientName = normalizeClientName(item[App.CONFIG.CLIENT_COLUMN_NAME]);
+            if (clientName !== 'GERAL' && clientName !== 'SEM CATEGORIA') {
+                escalatedClientCounts[clientName] = (escalatedClientCounts[clientName] || 0) + 1;
+            }
+        });
+        const [topEscalatedClient, topEscalatedCount] = findMax(escalatedClientCounts);
+
         const [principalWorkItemName, principalWorkItemCount] = findMax(byWorkItem);
         const [principalTagName] = findMax(byTags);
 
-        // --- LÓGICA DA MÉDIA CORRIGIDA ---
         const uniqueMonths = [...new Set(data.map(row => row[App.CONFIG.MONTH_COLUMN_NAME]).filter(Boolean))];
-        const numberOfMonths = uniqueMonths.length > 0 ? uniqueMonths.length : 1; // Se não houver mês, considera 1 para não dividir por 0
+        const numberOfMonths = uniqueMonths.length > 0 ? uniqueMonths.length : 1;
         const totalWorkingDays = numberOfMonths * App.CONFIG.WORKING_DAYS;
         const avgPerDay = totalWorkingDays > 0 ? (data.length / totalWorkingDays).toFixed(1) : '0.0';
         
         return {
             totalCards: data.length,
-            avgPerDay: avgPerDay, // Usa a nova variável
+            avgPerDay: avgPerDay,
             byStatus, byTags, byWorkItem,
             principalWorkItem: {
                 name: principalWorkItemName || 'N/A',
@@ -246,7 +256,9 @@ const App = {
             escalonadoCount: byStatus['ESCALONADO ENGENHARIA'] || 0,
             principalTag: principalTagName || 'N/A',
             principalCliente: principalClienteName || 'N/A',
-            top5Clientes: top5ClientesData
+            top5Clientes: top5ClientesData,
+            topEscalatedClient: topEscalatedClient || 'N/A',
+            topEscalatedCount: topEscalatedCount || 0
         };
     },
 
@@ -258,6 +270,14 @@ const App = {
         document.getElementById('principalWorkItemLabel').textContent = `Principal Item (${stats.principalWorkItem.name})`;
         document.getElementById('escalonadoValue').textContent = stats.escalonadoCount;
         document.getElementById('principalClienteValue').textContent = stats.principalCliente;
+
+        // Atualiza o novo card
+        const topEscalatedClientValue = document.getElementById('topEscalatedClientValue');
+        if (stats.topEscalatedClient !== 'N/A') {
+            topEscalatedClientValue.textContent = `${stats.topEscalatedClient} (${stats.topEscalatedCount})`;
+        } else {
+            topEscalatedClientValue.textContent = 'N/A';
+        }
 
         App.renderCharts(stats, App.data.currentFilter);
         UI.renderTopClientsTable(stats.top5Clientes);

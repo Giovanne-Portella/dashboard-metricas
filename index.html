@@ -114,7 +114,7 @@
             <h1 class="main-title">Dashboard de Performance Profissional</h1>
             <div id="filters-placeholder"></div>
         </div>
-
+        
         <header class="header">
             <div class="profile-pic" id="profilePicContainer">
                 <span class="profile-pic-placeholder">Add Foto</span>
@@ -125,6 +125,47 @@
                 <p id="headerRole">Seu Cargo</p>
             </div>
         </header>
+
+        <div id="metrics-grid" class="metrics-grid">
+            <div id="metric-total" class="metric-card card">
+                <p class="value" id="totalCards">0</p>
+                <p class="label">Total de Cards</p>
+            </div>
+            <div id="metric-avg" class="metric-card card">
+                <p class="value" id="avgPerDay">0.0</p>
+                <p class="label">Média / Dia Útil</p>
+            </div>
+            <div id="metric-escalonado" class="metric-card card">
+                <p class="value" id="escalonadoValue">0</p>
+                <p class="label">Escalonado Engenharia</p>
+            </div>
+
+            <div id="metric-top-escalated" class="metric-card card metric-card--text-value">
+                <p class="value" id="topEscalatedClientValue">N/A</p>
+                <p class="label">Cliente Mais Escalonado</p>
+            </div>
+            
+  
+            <div id="metric-principal-tag" class="metric-card card metric-card--text-value">
+                <p class="value" id="principalTagValue">-</p>
+                <p class="label">Principal Tag</p>
+            </div>
+
+            <div id="metric-principal-item" class="metric-card card">
+                <p class="value" id="principalWorkItemValue">0%</p>
+                <p class="label" id="principalWorkItemLabel">Principal Item</p>
+            </div>
+                                  <div class="card double-width-card" id="cliente-combo-card">
+                <div class="combined-metric-container">
+                    <div class="metric-card isolated">
+                        <p class="value" id="principalClienteValue">-</p>
+                        <p class="label">Principal Cliente</p>
+                    </div>
+                    <div id="topClientsTableContainer"></div>
+                </div>
+            </div>
+        </div>
+
         <div class="portals-grid">
             <div class="portal-card card" id="openAtuacoesModal">
                 <h3>Atuações Principais</h3>
@@ -134,40 +175,6 @@
             </div>
             <div class="portal-card card" id="openChartsModal">
                 <h3>Ver Insights</h3>
-            </div>
-        </div>
-
-        <div id="metrics-grid" class="metrics-grid">
-            <div id="metric-total" class="metric-card card">
-                <p class="value" id="totalCards">0</p>
-                <p class="label">Total de Cards</p>
-            </div>
-            <div id="metric-escalonado" class="metric-card card">
-                <p class="value" id="escalonadoValue">0</p>
-                <p class="label">Escalonado Engenharia</p>
-            </div>
-            <div id="metric-avg" class="metric-card card">
-                <p class="value" id="avgPerDay">0.0</p>
-                <p class="label">Média / Dia Útil</p>
-            </div>
-
-
-            <div id="metric-principal-tag" class="metric-card card metric-card--text-value">
-                <p class="value" id="principalTagValue">-</p>
-                <p class="label">Principal Tag</p>
-            </div>
-            <div class="card double-width-card" id="cliente-combo-card">
-                <div class="combined-metric-container">
-                    <div class="metric-card isolated">
-                        <p class="value" id="principalClienteValue">-</p>
-                        <p class="label">Principal Cliente</p>
-                    </div>
-                    <div id="topClientsTableContainer"></div>
-                </div>
-            </div>
-            <div id="metric-principal-item" class="metric-card card">
-                <p class="value" id="principalWorkItemValue">0%</p>
-                <p class="label" id="principalWorkItemLabel">Principal Item</p>
             </div>
         </div>
     </div>
