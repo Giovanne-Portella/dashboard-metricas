@@ -6,12 +6,17 @@ const App = {
         monthlyStatsCache: {}, // Cache para estatísticas mensais para cálculo de variação
     },
     CONFIG: {
-        WORKING_DAYS: 21,
+        WORKING_DAYS: 22,
+        // Custo da sua hora de trabalho em Reais. Altere este valor para calcular o custo por ticket.
+        COST_PER_HOUR: 18, 
+
+        // Nomes das colunas do CSV
         MONTH_COLUMN_NAME: 'Created Date',
         CLIENT_COLUMN_NAME: 'Cliente',
         ANALYST_COLUMN_NAME: 'Assigned To',
         WORK_ITEM_COLUMN_NAME: 'Work Item Type',
         TAGS_COLUMN_NAME: 'Tags',
+        HORAS_UTEIS_COLUMN_NAME: 'Horas Uteis', // Nova coluna de tempo
     },
 
     init: function () {
@@ -61,7 +66,6 @@ const App = {
             if (modalId) btn.addEventListener('click', () => App.closeModal(modalId));
         });
 
-        // --- CORREÇÃO NA LÓGICA DE EVENTOS ---
         // Filtros
         document.getElementById('analyst-filter').addEventListener('change', App.handleAnalystChange);
         document.querySelector('.tabs-container').addEventListener('click', UI.handleTabClick);
@@ -80,7 +84,6 @@ const App = {
         });
     },
     
-    // NOVO: Handler específico para a troca de analista
     handleAnalystChange: function() {
         const analystFilteredData = App.getAnalystFilteredData();
         // Recria os filtros globais, pois o universo de dados mudou
@@ -89,50 +92,45 @@ const App = {
         App.updateDashboard();
     },
 
-// script.js
+    updateDashboard: function() {
+        App.data.monthlyStatsCache = {};
 
-updateDashboard: function() {
-    App.data.monthlyStatsCache = {};
+        // 1. Pega dados já filtrados pelo analista
+        const analystFilteredData = App.getAnalystFilteredData();
+        
+        // 2. Aplica Filtros Globais (camada 2)
+        const { filterType, filterValue } = UI.getActiveGlobalFilter();
+        
+        // Oculta/mostra grupos com base no filtro
+        const isSpecificFilterActive = filterType !== 'geral' && filterValue !== '__ALL__';
+        document.getElementById('group-clientes').style.display = (filterType === 'cliente' && isSpecificFilterActive) ? 'none' : 'block';
+        document.getElementById('group-tags').style.display = (filterType === 'tag' && isSpecificFilterActive) ? 'none' : 'block';
+        document.getElementById('group-estrategico').style.display = (filterType === 'item' && isSpecificFilterActive) ? 'none' : 'block';
 
-    // 1. Pega dados já filtrados pelo analista
-    const analystFilteredData = App.getAnalystFilteredData();
-    
-    // 2. Aplica Filtros Globais (camada 2)
-    const { filterType, filterValue } = UI.getActiveGlobalFilter();
-    
-    // --- NOVA LÓGICA PARA OCULTAR GRUPOS ---
-    const isSpecificFilterActive = filterType !== 'geral' && filterValue !== '__ALL__';
-    
-    // Oculta ou mostra os grupos com base no filtro ativo
-    document.getElementById('group-clientes').style.display = (filterType === 'cliente' && isSpecificFilterActive) ? 'none' : 'block';
-    document.getElementById('group-tags').style.display = (filterType === 'tag' && isSpecificFilterActive) ? 'none' : 'block';
-    document.getElementById('group-estrategico').style.display = (filterType === 'item' && isSpecificFilterActive) ? 'none' : 'block';
-    // --- FIM DA NOVA LÓGICA ---
-
-    let finalFilteredData = analystFilteredData;
-    if (isSpecificFilterActive) {
-        const columnMap = {
-            cliente: App.CONFIG.CLIENT_COLUMN_NAME,
-            item: App.CONFIG.WORK_ITEM_COLUMN_NAME,
-            tag: App.CONFIG.TAGS_COLUMN_NAME
-        };
-        const filterColumn = columnMap[filterType];
-        if (filterColumn) {
-            finalFilteredData = analystFilteredData.filter(row => {
-                if (filterType === 'tag') {
-                    const tags = (row[filterColumn] || '').split(',').map(t => t.trim().toUpperCase());
-                    return tags.includes(filterValue);
-                }
-                return (row[filterColumn] || '').toUpperCase() === filterValue;
-            });
+        let finalFilteredData = analystFilteredData;
+        if (isSpecificFilterActive) {
+            const columnMap = {
+                cliente: App.CONFIG.CLIENT_COLUMN_NAME,
+                item: App.CONFIG.WORK_ITEM_COLUMN_NAME,
+                tag: App.CONFIG.TAGS_COLUMN_NAME
+            };
+            const filterColumn = columnMap[filterType];
+            if (filterColumn) {
+                finalFilteredData = analystFilteredData.filter(row => {
+                    if (filterType === 'tag') {
+                        const tags = (row[filterColumn] || '').split(',').map(t => t.trim().toUpperCase());
+                        return tags.includes(filterValue);
+                    }
+                    return (row[filterColumn] || '').toUpperCase() === filterValue;
+                });
+            }
         }
-    }
-    
-    // 3. Agrupa por mês e renderiza
-    const monthlyData = App.groupDataByMonth(finalFilteredData);
-    UI.renderAllMonthlyBlocks(monthlyData);
-    UI.applySavedStates();
-},
+        
+        // 3. Agrupa por mês e renderiza
+        const monthlyData = App.groupDataByMonth(finalFilteredData);
+        UI.renderAllMonthlyBlocks(monthlyData);
+        UI.applySavedStates();
+    },
 
     initializeDashboard: function (rawData, userInfo) {
         App.data.fullRawData = rawData;
@@ -157,14 +155,31 @@ updateDashboard: function() {
         }
     },
 
+    // --- FUNÇÃO CORRIGIDA ---
     groupDataByMonth: function(data) {
         const monthColumn = this.CONFIG.MONTH_COLUMN_NAME;
         const groups = {};
+        const monthNames = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+
         data.forEach(row => {
-            const month = row[monthColumn];
-            if (month) {
-                if (!groups[month]) groups[month] = [];
-                groups[month].push(row);
+            const dateStr = row[monthColumn];
+            if (dateStr) {
+                // Tenta extrair a data no formato dd/mm/aaaa hh:mm
+                const parts = dateStr.split(' ')[0].split('/');
+                if (parts.length === 3) {
+                    const day = parseInt(parts[0], 10);
+                    const month = parseInt(parts[1], 10);
+                    const year = parseInt(parts[2], 10);
+
+                    if (!isNaN(month) && !isNaN(year)) {
+                        // Cria uma chave "NomeDoMês/Ano" para o agrupamento
+                        const groupKey = `${monthNames[month - 1]}/${year}`;
+                        if (!groups[groupKey]) {
+                            groups[groupKey] = [];
+                        }
+                        groups[groupKey].push(row);
+                    }
+                }
             }
         });
         return groups;
@@ -223,10 +238,10 @@ updateDashboard: function() {
             if (typeof name !== 'string' || !name.trim()) return 'SEM CATEGORIA';
             return name.trim().toUpperCase().split(' ')[0];
         };
-        const byStatus = {};
-        const byWorkItem = {};
-        const byTags = {};
-        const dataByClient = {};
+        const horasUteisValidas = data.map(row => parseFloat(String(row[App.CONFIG.HORAS_UTEIS_COLUMN_NAME]).replace(',', '.'))).filter(h => !isNaN(h) && h > 0);
+        const totalHorasUteis = horasUteisValidas.reduce((sum, h) => sum + h, 0);
+        const avgHorasUteis = horasUteisValidas.length > 0 ? (totalHorasUteis / horasUteisValidas.length) : 0;
+        const byStatus = {}, byWorkItem = {}, byTags = {}, dataByClient = {};
         let totalTagInstances = 0;
         const itemsWithTags = data.filter(item => item.Tags && item.Tags.trim() !== '').length;
         data.forEach(item => {
@@ -289,11 +304,16 @@ updateDashboard: function() {
             });
         });
         const [topEscalatedTag, topEscalatedTagCount] = findMax(escalatedTagCounts);
+        const productivity = totalHorasUteis > 0 ? (totalCards / totalHorasUteis).toFixed(2) : 0;
+        const avgCostPerTicket = avgHorasUteis > 0 && App.CONFIG.COST_PER_HOUR > 0 ? (avgHorasUteis * App.CONFIG.COST_PER_HOUR) : 0;
         return {
             totalCards, avgPerDay, byStatus, totalAtivos, totalClientesUnicos, top5Clientes, topEscalatedClient: topEscalatedClient || 'N/A',
             topEscalatedCount: topEscalatedCount || 0, topResolverClient: topResolverClient || 'N/A', topResolverCount: topResolverCount || 0,
             byWorkItem, principalWorkItemName: principalWorkItemName || 'N/A', topEscalatedWorkItem, totalTagsUnicas, top5Tags, avgTagsPerItem,
-            topEscalatedTag: topEscalatedTag || 'N/A', topEscalatedTagCount: topEscalatedTagCount || 0
+            topEscalatedTag: topEscalatedTag || 'N/A', topEscalatedTagCount: topEscalatedTagCount || 0,
+            avgHorasUteis: avgHorasUteis > 0 ? avgHorasUteis.toFixed(2) : 'N/A',
+            productivity: productivity > 0 ? productivity : 'N/A',
+            avgCostPerTicket: avgCostPerTicket > 0 ? `R$ ${avgCostPerTicket.toFixed(2)}` : 'N/A',
         };
     },
 
@@ -361,19 +381,12 @@ const UI = {
     populateGlobalFilters: function(data) {
         const container = document.getElementById('global-filters-container');
         const activeTab = document.querySelector('.tab-btn.active')?.dataset.filterType;
-        
-        // Salva o valor selecionado antes de limpar, se existir
         const previouslySelectedValue = container.querySelector('select')?.value;
-
         container.innerHTML = '';
         if (!activeTab || activeTab === 'geral') return;
 
         let options = [];
-        const columnMap = {
-            cliente: App.CONFIG.CLIENT_COLUMN_NAME,
-            item: App.CONFIG.WORK_ITEM_COLUMN_NAME,
-            tag: App.CONFIG.TAGS_COLUMN_NAME
-        };
+        const columnMap = { cliente: App.CONFIG.CLIENT_COLUMN_NAME, item: App.CONFIG.WORK_ITEM_COLUMN_NAME, tag: App.CONFIG.TAGS_COLUMN_NAME };
         const column = columnMap[activeTab];
 
         if (activeTab === 'tag') {
@@ -392,15 +405,10 @@ const UI = {
         select.id = 'global-filter-select';
         select.className = 'global-filter-select';
         select.innerHTML = `<option value="__ALL__">Todos</option>`;
-        options.forEach(opt => {
-            select.innerHTML += `<option value="${opt}">${opt}</option>`;
-        });
-
-        // Restaura a seleção anterior se ela ainda for uma opção válida
+        options.forEach(opt => { select.innerHTML += `<option value="${opt}">${opt}</option>`; });
         if (previouslySelectedValue && options.includes(previouslySelectedValue)) {
             select.value = previouslySelectedValue;
         }
-
         container.append(label, select);
     },
 
@@ -415,10 +423,8 @@ const UI = {
         if (event.target.classList.contains('tab-btn')) {
             document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
             event.target.classList.add('active');
-            // Recria os filtros globais para a nova aba
             const analystFilteredData = App.getAnalystFilteredData();
             UI.populateGlobalFilters(analystFilteredData);
-            // Atualiza o dashboard
             App.updateDashboard();
         }
     },
@@ -427,10 +433,14 @@ const UI = {
         const containers = { status: document.getElementById('status-group-content'), estrategico: document.getElementById('estrategico-group-content'), clientes: document.getElementById('clientes-group-content'), tags: document.getElementById('tags-group-content') };
         Object.values(containers).forEach(container => { if (container) container.innerHTML = ''; });
         
-        const sortedMonths = Object.keys(monthlyData).sort();
+        const sortedMonths = Object.keys(monthlyData).sort((a, b) => {
+            const [monthA, yearA] = a.split('/');
+            const [monthB, yearB] = b.split('/');
+            const monthNames = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+            return new Date(yearA, monthNames.indexOf(monthA)) - new Date(yearB, monthNames.indexOf(monthB));
+        });
         
         sortedMonths.forEach(month => { App.data.monthlyStatsCache[month] = App.processData(monthlyData[month]); });
-
         sortedMonths.forEach((month, index) => {
             const monthStats = App.data.monthlyStatsCache[month];
             const prevMonth = sortedMonths[index - 1];
@@ -469,21 +479,21 @@ const UI = {
         const getVar = (field) => this.getVariationHtml(stats, prevStats, field);
         switch(groupType) {
             case 'status':
-                cards.push(this.createMetricCard(stats.avgPerDay, 'Média / Dia Útil', false, getVar('avgPerDay')), this.createMetricCard(stats.totalAtivos, 'Tickets Ativos', false, getVar('totalAtivos')), this.createListCard('Distribuição por Status', stats.byStatus));
+                cards.push(this.createMetricCard(stats.avgPerDay, 'Média / Dia Útil', false, getVar('avgPerDay')), this.createMetricCard(stats.totalAtivos, 'Tickets Ativos', false, getVar('totalAtivos')), this.createMetricCard(`${stats.avgHorasUteis} h`, 'Tempo Médio de Atuação', false, getVar('avgHorasUteis')), this.createListCard('Distribuição por Status', stats.byStatus));
                 break;
             case 'estrategico':
-                cards.push(this.createMetricCard(stats.totalCards, 'Total de Work Items', false, getVar('totalCards')), this.createMetricCard(stats.principalWorkItemName, 'Principal Work Item', true), this.createMetricCard(stats.topEscalatedWorkItem, 'Item com Maior Taxa de Escalonamento', true), this.createListCard('Distribuição por Tipo de Item', stats.byWorkItem));
+                cards.push(this.createMetricCard(stats.totalCards, 'Total de Work Items', false, getVar('totalCards')), this.createMetricCard(stats.principalWorkItemName, 'Principal Work Item', true), this.createMetricCard(stats.productivity, 'Tickets / Hora', false, getVar('productivity')), this.createMetricCard(stats.avgCostPerTicket, 'Custo Médio / Ticket', false, getVar('avgCostPerTicket')), this.createListCard('Distribuição por Tipo de Item', stats.byWorkItem));
                 break;
             case 'clientes':
                 const escalatedTextClient = stats.topEscalatedClient !== 'N/A' ? `${stats.topEscalatedClient} (${stats.topEscalatedCount})` : 'N/A';
                 const resolverText = stats.topResolverClient !== 'N/A' ? `${stats.topResolverClient} (${stats.topResolverCount})` : 'N/A';
                 const listCardDataClient = Object.fromEntries(stats.top5Clientes.map(item => [item.name, item.count]));
-                cards.push(this.createMetricCard(stats.totalClientesUnicos, 'Clientes Únicos', false, getVar('totalClientesUnicos')), this.createMetricCard(escalatedTextClient, 'Cliente Mais Escalonado', true), this.createMetricCard(resolverText, 'Cliente com Mais Resolvidos', true), this.createListCard('Top 5 Clientes', listCardDataClient));
+                cards.push(this.createMetricCard(stats.totalClientesUnicos, 'Clientes Únicos', false, getVar('totalClientesUnicos')), this.createMetricCard(escalatedTextClient, 'Cliente Mais Escalonado', true), this.createMetricCard(`${stats.avgHorasUteis} h`, 'Tempo Médio de Atuação', false, getVar('avgHorasUteis')), this.createListCard('Top 5 Clientes', listCardDataClient));
                 break;
             case 'tags':
                 const escalatedTextTag = stats.topEscalatedTag !== 'N/A' ? `${stats.topEscalatedTag} (${stats.topEscalatedTagCount})` : 'N/A';
                 const listCardDataTag = Object.fromEntries(stats.top5Tags);
-                cards.push(this.createMetricCard(stats.totalTagsUnicas, 'Tags Únicas', false, getVar('totalTagsUnicas')), this.createMetricCard(stats.avgTagsPerItem, 'Média de Tags por Item', false, getVar('avgTagsPerItem')), this.createMetricCard(escalatedTextTag, 'Tag Mais Escalonada', true), this.createListCard('Top 5 Tags', listCardDataTag));
+                cards.push(this.createMetricCard(stats.totalTagsUnicas, 'Tags Únicas', false, getVar('totalTagsUnicas')), this.createMetricCard(stats.avgTagsPerItem, 'Média de Tags por Item', false, getVar('avgTagsPerItem')), this.createMetricCard(`${stats.avgHorasUteis} h`, 'Tempo Médio de Atuação', false, getVar('avgHorasUteis')), this.createListCard('Top 5 Tags', listCardDataTag));
                 break;
         }
         return cards;
