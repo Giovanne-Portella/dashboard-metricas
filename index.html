@@ -5,10 +5,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard de Métricas</title>
-
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
-
     <link rel="stylesheet" href="style.css">
 </head>
 
@@ -34,26 +32,6 @@
         </div>
     </div>
 
-    <div id="chartsModal" class="fullscreen-modal modal--hidden">
-        <div class="fullscreen-modal-header">
-            <h2>Gráficos de Performance</h2>
-            <span class="close-btn" data-modal-id="chartsModal">&times;</span>
-        </div>
-        <div id="charts-container" class="charts-container">
-            <div id="status-chart-card" class="chart-card card small">
-                <h3 class="card-title">Cards por Status</h3>
-                <canvas id="statusChart"></canvas>
-            </div>
-            <div id="work-item-chart-card" class="chart-card card small">
-                <h3 class="card-title">Cards por Tipo (Work Item)</h3>
-                <canvas id="workItemChart"></canvas>
-            </div>
-            <div id="tags-chart-card" class="chart-card card large">
-                <h3 class="card-title">Cards por Tags</h3>
-                <canvas id="tagsChart"></canvas>
-            </div>
-        </div>
-    </div>
     <div id="atuacoesModal" class="fullscreen-modal modal--hidden">
         <div class="fullscreen-modal-header">
             <h2>Minhas Atuações</h2>
@@ -125,6 +103,43 @@
                 <p id="headerRole">Seu Cargo</p>
             </div>
         </header>
+
+        <div id="group-status" class="metrics-group">
+            <h2 class="group-header collapsed">
+                <span>📌 Grupo de Status</span>
+                <span class="toggle-icon">+</span>
+            </h2>
+            <div id="status-group-content" class="group-content collapsed">
+                </div>
+        </div>
+
+        <div id="group-estrategico" class="metrics-group">
+            <h2 class="group-header collapsed">
+                <span>🧠 Grupo Estratégico</span>
+                <span class="toggle-icon">+</span>
+            </h2>
+            <div id="estrategico-group-content" class="group-content collapsed">
+                 </div>
+        </div>
+
+        <div id="group-clientes" class="metrics-group">
+            <h2 class="group-header collapsed">
+                <span>🧩 Grupo de Clientes</span>
+                <span class="toggle-icon">+</span>
+            </h2>
+            <div id="clientes-group-content" class="group-content collapsed">
+                </div>
+        </div>
+        
+        <div id="group-tags" class="metrics-group">
+            <h2 class="group-header collapsed">
+                <span>🏷️ Grupo de Tags</span>
+                <span class="toggle-icon">+</span>
+            </h2>
+            <div id="tags-group-content" class="group-content collapsed">
+                </div>
+        </div>
+
         <div class="portals-grid">
             <div class="portal-card card" id="openAtuacoesModal">
                 <h3>Atuações Principais</h3>
@@ -132,51 +147,7 @@
             <div class="portal-card card" id="openDesenvolvimentoModal">
                 <h3>Desenvolvimento</h3>
             </div>
-            <div class="portal-card card" id="openChartsModal">
-                <h3>Ver Insights</h3>
-            </div>
         </div>
-        <div id="metrics-grid" class="metrics-grid">
-            <div id="metric-total" class="metric-card card">
-                <p class="value" id="totalCards">0</p>
-                <p class="label">Total de Cards</p>
-            </div>
-            <div id="metric-avg" class="metric-card card">
-                <p class="value" id="avgPerDay">0.0</p>
-                <p class="label">Média / Dia Útil</p>
-            </div>
-            <div id="metric-escalonado" class="metric-card card">
-                <p class="value" id="escalonadoValue">0</p>
-                <p class="label">Escalonado Engenharia</p>
-            </div>
-
-            <div id="metric-top-escalated" class="metric-card card metric-card--text-value">
-                <p class="value" id="topEscalatedClientValue">N/A</p>
-                <p class="label">Cliente Mais Escalonado</p>
-            </div>
-            
-  
-            <div id="metric-principal-tag" class="metric-card card metric-card--text-value">
-                <p class="value" id="principalTagValue">-</p>
-                <p class="label">Principal Tag</p>
-            </div>
-
-            <div id="metric-principal-item" class="metric-card card">
-                <p class="value" id="principalWorkItemValue">0%</p>
-                <p class="label" id="principalWorkItemLabel">Principal Item</p>
-            </div>
-                                  <div class="card double-width-card" id="cliente-combo-card">
-                <div class="combined-metric-container">
-                    <div class="metric-card isolated">
-                        <p class="value" id="principalClienteValue">-</p>
-                        <p class="label">Principal Cliente</p>
-                    </div>
-                    <div id="topClientsTableContainer"></div>
-                </div>
-            </div>
-        </div>
-
-
     </div>
 
     <button id="reset-btn" class="fixed-btn fixed-btn--bottom-left">🔄</button>
@@ -184,5 +155,4 @@
 
     <script src="script.js"></script>
 </body>
-
 </html>

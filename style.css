@@ -49,7 +49,7 @@ body.dark-theme {
 
 .main-title {
     color: var(--primary-color);
-    margin: 0; /* Margin ajustada */
+    margin: 0;
 }
 
 .modal {
@@ -270,7 +270,7 @@ body:not(.dark-theme) .file-label:hover {
     grid-column: 1 / -1;
 }
 
-.header, .metrics-grid, .portals-grid, .charts-container {
+.header, .metrics-group, .portals-grid {
     grid-column: 1 / -1;
 }
 
@@ -339,7 +339,7 @@ body:not(.dark-theme) .file-label:hover {
 
 .metric-card {
     text-align: center;
-    flex: 1 1 150px;
+    flex: 1 1 200px; /* Base de largura um pouco maior */
     display: flex;
     flex-direction: column;
     justify-content: center;
@@ -347,17 +347,13 @@ body:not(.dark-theme) .file-label:hover {
 
 .metric-card .value {
     color: var(--primary-color);
-    font-size: 2.5em;
+    font-size: 1.6em;
     font-weight: 700;
     margin: 0;
     min-height: 60px;
     display: flex;
     align-items: center;
     justify-content: center;
-}
-
-.metric-card--text-value .value {
-    font-size: 1.8em;
 }
 
 .metric-card .label {
@@ -392,51 +388,6 @@ body.dark-theme .portal-card:hover {
     color: var(--primary-color);
     margin: 0;
     font-size: 1.5em;
-}
-
-.charts-container {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 20px;
-    align-items: flex-start;
-}
-
-.chart-card {
-    min-width: 300px;
-    cursor: grab;
-    display: flex;
-    flex-direction: column;
-}
-
-.chart-card.small {
-    flex: 1 1 calc(50% - 20px);
-    min-height: 400px;
-}
-
-.chart-card.small canvas {
-    max-height: 350px;
-}
-
-.chart-card.large {
-    flex: 1 1 100%;
-    min-height: 450px;
-}
-
-#tags-chart-card canvas {
-    height: 100%;
-    width: 100%;
-}
-
-.card-title {
-    margin-top: 0;
-    margin-bottom: 20px;
-    font-size: 1.2em;
-    font-weight: 600;
-}
-
-.sortable-ghost {
-    opacity: 0.4;
-    background-color: #c8ebfb;
 }
 
 .editor-wrapper {
@@ -484,6 +435,15 @@ body.dark-theme .portal-card:hover {
     outline: none;
     background: var(--background-color);
     color: var(--text-color);
+}
+
+.editor-content img {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    margin: 1em auto;
+    border-radius: 8px;
+    box-shadow: var(--shadow);
 }
 
 .editor-controls {
@@ -566,11 +526,6 @@ body.dark-theme .fixed-btn--bottom-left:hover {
     background-color: #505d84;
 }
 
-.fullscreen-modal .charts-container {
-    max-width: 1200px;
-    margin: 20px auto;
-}
-
 #filters-placeholder {
     display: flex;
     align-items: center;
@@ -594,66 +549,95 @@ body.dark-theme .fixed-btn--bottom-left:hover {
     min-width: 150px;
 }
 
-.double-width-card {
-    flex: 1 1 320px;
-    padding: 10px 20px;
+/* --- NOVOS ESTILOS PARA GRUPOS DE MÉTRICAS --- */
+.metrics-group {
+    background-color: var(--surface-color);
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
+    box-shadow: var(--shadow);
+    margin-bottom: 20px;
 }
 
-.combined-metric-container {
+.group-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    gap: 20px;
-}
-
-.metric-card.isolated {
-    box-shadow: none;
-    border: none;
-    padding: 10px 0;
-    text-align: left;
-    flex-shrink: 0;
-    min-width: 130px;
-}
-
-.metric-card.isolated .value {
-    justify-content: flex-start;
-}
-
-.dashboard-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.85em;
-}
-
-.dashboard-table th, .dashboard-table td {
-    text-align: left;
-    padding: 6px 4px;
-    border-bottom: 1px solid var(--border-color);
-    text-transform: capitalize;
-    white-space: nowrap;
-}
-
-.dashboard-table tr:last-child td {
-    border-bottom: none;
-}
-
-.dashboard-table th {
-    font-weight: 600;
-    color: var(--text-color-secondary);
-}
-
-.dashboard-table td:nth-child(2) {
-    font-weight: 700;
-    font-size: 1.1em;
+    padding: 15px 20px;
+    cursor: pointer;
+    margin: 0;
+    font-size: 1.5em;
     color: var(--primary-color);
 }
 
-/* --- AJUSTE PARA IMAGENS DENTRO DO EDITOR --- */
-.editor-content img {
-    display: block;
-    max-width: 100%;
-    height: auto;
-    margin: 1em auto;
-    border-radius: 8px;
-    box-shadow: var(--shadow);
+.toggle-icon {
+    font-size: 1.2em;
+    transition: transform 0.3s ease;
+}
+
+.group-content {
+    padding: 0 20px 20px;
+    overflow: hidden;
+    transition: max-height 0.4s ease-out;
+    max-height: 1000px; /* Altura grande para garantir que o conteúdo caiba */
+}
+
+.group-content.collapsed {
+    max-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+}
+
+.group-header.collapsed .toggle-icon {
+    transform: rotate(-90deg);
+}
+
+.list-card {
+    justify-content: flex-start;
+    align-items: flex-start;
+    text-align: left;
+    flex: 1 1 300px; /* Permite que cresça mais */
+}
+
+.status-list {
+    list-style-type: none;
+    padding: 0;
+    margin: 0;
+    width: 100%;
+}
+
+.status-list li {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border-color);
+    font-size: 0.9em;
+    text-transform: capitalize;
+}
+
+.status-list li:last-child {
+    border-bottom: none;
+}
+
+.status-list .status-name {
+    color: var(--text-color-secondary);
+}
+
+.status-list .status-count {
+    font-weight: 700;
+    color: var(--primary-color);
+}
+
+.metrics-group > .group-content {
+    display: flex;
+    flex-direction: row; /* Alinha os itens (meses) horizontalmente */
+    flex-wrap: wrap;     /* Permite que os meses quebrem para a linha de baixo se não houver espaço */
+    align-items: flex-start; /* Alinha os blocos de meses pelo topo */
+    gap: 20px;           /* Espaço entre os blocos dos meses */
+}
+
+/* Define o tamanho de cada bloco de mês */
+.monthly-subgroup {
+    flex-grow: 1; /* Permite que o bloco cresça para ocupar o espaço disponível */
+    flex-basis: 400px; /* Define uma largura base, evitando que fiquem muito pequenos */
+    min-width: 350px; /* Garante uma largura mínima em telas menores */
 }

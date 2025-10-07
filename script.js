@@ -1,49 +1,14 @@
 'use strict';
 
-/**
- * Gera um gradiente de tons de verde com base nos valores de entrada.
- * @param {number[]} values - Um array de números (as quantidades de cada tag).
- * @returns {string[]} - Um array de cores no formato 'rgb(r, g, b)'.
- */
-function generateGreenShades(values) {
-    if (values.length === 0) return [];
-
-    const minValue = Math.min(...values);
-    const maxValue = Math.max(...values);
-
-    const startColor = { r: 220, g: 245, b: 225 }; // Verde bem claro
-    const endColor = { r: 15, g: 110, b: 40 };   // Verde escuro
-
-    if (minValue === maxValue) {
-        const midColor = `rgb(${Math.round((startColor.r + endColor.r) / 2)}, ${Math.round((startColor.g + endColor.g) / 2)}, ${Math.round((startColor.b + endColor.b) / 2)})`;
-        return values.map(() => midColor);
-    }
-
-    return values.map(value => {
-        const ratio = (maxValue - minValue) > 0 ? (value - minValue) / (maxValue - minValue) : 1;
-        const r = Math.round(startColor.r + ratio * (endColor.r - startColor.r));
-        const g = Math.round(startColor.g + ratio * (endColor.g - startColor.g));
-        const b = Math.round(startColor.b + ratio * (endColor.b - startColor.b));
-        return `rgb(${r}, ${g}, ${b})`;
-    });
-}
-
-
 const App = {
-    charts: { status: null, tags: null, workItem: null },
     data: {
         stats: null,
         fullRawData: [],
-        currentFilter: 'all'
     },
     CONFIG: {
         WORKING_DAYS: 21,
         MONTH_COLUMN_NAME: 'Created Date',
         CLIENT_COLUMN_NAME: 'Cliente',
-        CHART_COLORS: {
-            light: ['#007bff', '#17a2b8', '#28a745', '#ffc107', '#dc3545', '#6c757d'],
-            dark: ['#ff79c6', '#8be9fd', '#50fa7b', '#f1fa8c', '#ffb86c', '#ff5555', '#bd93f9']
-        }
     },
 
     init: function () {
@@ -77,7 +42,6 @@ const App = {
         document.getElementById('reset-btn').addEventListener('click', () => App.clearAllData(true));
         document.getElementById('profilePicContainer').addEventListener('click', () => document.getElementById('profilePicInput').click());
         document.getElementById('profilePicInput').addEventListener('change', App.handleProfilePicSelect);
-        document.getElementById('openChartsModal').addEventListener('click', () => App.openModal('chartsModal'));
         document.getElementById('openAtuacoesModal').addEventListener('click', () => App.openModal('atuacoesModal'));
         document.getElementById('openDesenvolvimentoModal').addEventListener('click', () => App.openModal('desenvolvimentoModal'));
 
@@ -88,36 +52,36 @@ const App = {
             }
         });
 
-        document.getElementById('filters-placeholder').addEventListener('change', (e) => {
-            if (e.target && e.target.id === 'monthFilter') {
-                App.data.currentFilter = e.target.value;
-                App.updateDashboard();
-            }
+        document.querySelectorAll('.group-header').forEach(header => {
+            header.addEventListener('click', () => UI.toggleGroup(header));
         });
     },
 
     initializeDashboard: function (rawData, userInfo) {
         App.data.fullRawData = rawData;
         App.displayUserInfo(userInfo);
-        UI.createMonthFilter(App.data.fullRawData);
-        App.updateDashboard();
+        
+        const monthlyData = this.groupDataByMonth(rawData);
+        UI.renderAllMonthlyBlocks(monthlyData);
+
         App.loadProfilePicture();
-        App.initializeChartsDragAndDrop();
+        
+        UI.applySavedStates();
     },
-
-    updateDashboard: function () {
-        const filter = App.data.currentFilter;
-        let filteredData;
-
-        if (filter === 'all') {
-            filteredData = App.data.fullRawData;
-        } else {
-            filteredData = App.data.fullRawData.filter(row => row[App.CONFIG.MONTH_COLUMN_NAME] === filter);
-        }
-
-        const stats = App.processData(filteredData);
-        App.data.stats = stats;
-        App.displayData(stats);
+    
+    groupDataByMonth: function(data) {
+        const monthColumn = this.CONFIG.MONTH_COLUMN_NAME;
+        const groups = {};
+        data.forEach(row => {
+            const month = row[monthColumn];
+            if (month) {
+                if (!groups[month]) {
+                    groups[month] = [];
+                }
+                groups[month].push(row);
+            }
+        });
+        return groups;
     },
 
     handleMouseMove: function (e) {
@@ -183,104 +147,96 @@ const App = {
             return name.trim().toUpperCase().split(' ')[0];
         };
 
-        const dataByClient = {};
-        data.forEach(item => {
-            const clientName = normalizeClientName(item[App.CONFIG.CLIENT_COLUMN_NAME]);
-            if (!dataByClient[clientName]) {
-                dataByClient[clientName] = [];
-            }
-            dataByClient[clientName].push(item);
-        });
-
         const byStatus = {};
-        const byTags = {};
         const byWorkItem = {};
+        const byTags = {};
+        const dataByClient = {};
+        let totalTagInstances = 0;
+        const itemsWithTags = data.filter(item => item.Tags && item.Tags.trim() !== '').length;
+
         data.forEach(item => {
             const status = (item.State || 'SEM CATEGORIA').toUpperCase();
             const workItem = (item['Work Item Type'] || 'SEM CATEGORIA').toUpperCase();
             byStatus[status] = (byStatus[status] || 0) + 1;
             byWorkItem[workItem] = (byWorkItem[workItem] || 0) + 1;
 
+            const clientName = normalizeClientName(item[App.CONFIG.CLIENT_COLUMN_NAME]);
+            if (!dataByClient[clientName]) dataByClient[clientName] = [];
+            dataByClient[clientName].push(item);
+            
             const tags = (item.Tags || '').split(',').map(t => t.trim().toUpperCase()).filter(Boolean);
+            totalTagInstances += tags.length;
             tags.forEach(tag => byTags[tag] = (byTags[tag] || 0) + 1);
         });
-        
-        const filteredClients = Object.fromEntries(Object.entries(dataByClient).filter(([key]) => key !== 'GERAL' && key !== 'SEM CATEGORIA'));
-        const [principalClienteName] = findMax(Object.fromEntries(Object.entries(filteredClients).map(([name, items]) => [name, items.length])));
 
-        const top5ClientesData = Object.entries(dataByClient)
-            .map(([name, items]) => ({ name, count: items.length, items }))
+        const totalCards = data.length;
+        const totalAtivos = totalCards - (byStatus['FECHADO'] || 0) - (byStatus['RESOLVIDO'] || 0);
+        const avgPerDay = (totalCards / App.CONFIG.WORKING_DAYS).toFixed(1);
+
+        const totalClientesUnicos = Object.keys(dataByClient).filter(name => name !== 'GERAL' && name !== 'SEM CATEGORIA').length;
+        const top5Clientes = Object.entries(dataByClient)
+            .map(([name, items]) => ({ name, count: items.length }))
             .sort((a, b) => b.count - a.count)
-            .slice(0, 5)
-            .map(client => {
-                const clientWorkItems = {};
-                const clientTags = {};
-                client.items.forEach(item => {
-                    const workItem = (item['Work Item Type'] || 'SEM CATEGORIA').toUpperCase();
-                    clientWorkItems[workItem] = (clientWorkItems[workItem] || 0) + 1;
-                    const tags = (item.Tags || '').split(',').map(t => t.trim().toUpperCase()).filter(Boolean);
-                    tags.forEach(tag => clientTags[tag] = (clientTags[tag] || 0) + 1);
-                });
-                const [topWorkItem] = findMax(clientWorkItems);
-                const [topTag] = findMax(clientTags);
-                return { name: client.name, count: client.count, topWorkItem, topTag };
-            });
+            .slice(0, 5);
 
-        // --- NOVO CÁLCULO PARA CLIENTE MAIS ESCALONADO ---
         const escalatedItems = data.filter(item => (item.State || '').toUpperCase() === 'ESCALONADO ENGENHARIA');
         const escalatedClientCounts = {};
         escalatedItems.forEach(item => {
             const clientName = normalizeClientName(item[App.CONFIG.CLIENT_COLUMN_NAME]);
-            if (clientName !== 'GERAL' && clientName !== 'SEM CATEGORIA') {
+             if (clientName !== 'GERAL' && clientName !== 'SEM CATEGORIA') {
                 escalatedClientCounts[clientName] = (escalatedClientCounts[clientName] || 0) + 1;
             }
         });
         const [topEscalatedClient, topEscalatedCount] = findMax(escalatedClientCounts);
 
-        const [principalWorkItemName, principalWorkItemCount] = findMax(byWorkItem);
-        const [principalTagName] = findMax(byTags);
+        const resolvedItems = data.filter(item => ['FECHADO', 'RESOLVIDO'].includes((item.State || '').toUpperCase()));
+        const resolvedClientCounts = {};
+        resolvedItems.forEach(item => {
+            const clientName = normalizeClientName(item[App.CONFIG.CLIENT_COLUMN_NAME]);
+             if (clientName !== 'GERAL' && clientName !== 'SEM CATEGORIA') {
+                resolvedClientCounts[clientName] = (resolvedClientCounts[clientName] || 0) + 1;
+            }
+        });
+        const [topResolverClient, topResolverCount] = findMax(resolvedClientCounts);
 
-        const uniqueMonths = [...new Set(data.map(row => row[App.CONFIG.MONTH_COLUMN_NAME]).filter(Boolean))];
-        const numberOfMonths = uniqueMonths.length > 0 ? uniqueMonths.length : 1;
-        const totalWorkingDays = numberOfMonths * App.CONFIG.WORKING_DAYS;
-        const avgPerDay = totalWorkingDays > 0 ? (data.length / totalWorkingDays).toFixed(1) : '0.0';
-        
-        return {
-            totalCards: data.length,
-            avgPerDay: avgPerDay,
-            byStatus, byTags, byWorkItem,
-            principalWorkItem: {
-                name: principalWorkItemName || 'N/A',
-                percentage: data.length > 0 ? ((principalWorkItemCount / data.length) * 100).toFixed(1) : 0
-            },
-            escalonadoCount: byStatus['ESCALONADO ENGENHARIA'] || 0,
-            principalTag: principalTagName || 'N/A',
-            principalCliente: principalClienteName || 'N/A',
-            top5Clientes: top5ClientesData,
-            topEscalatedClient: topEscalatedClient || 'N/A',
-            topEscalatedCount: topEscalatedCount || 0
-        };
-    },
-
-    displayData: function (stats) {
-        document.getElementById('totalCards').textContent = stats.totalCards;
-        document.getElementById('avgPerDay').textContent = stats.avgPerDay;
-        document.getElementById('principalTagValue').textContent = stats.principalTag;
-        document.getElementById('principalWorkItemValue').textContent = `${stats.principalWorkItem.percentage}%`;
-        document.getElementById('principalWorkItemLabel').textContent = `Principal Item (${stats.principalWorkItem.name})`;
-        document.getElementById('escalonadoValue').textContent = stats.escalonadoCount;
-        document.getElementById('principalClienteValue').textContent = stats.principalCliente;
-
-        // Atualiza o novo card
-        const topEscalatedClientValue = document.getElementById('topEscalatedClientValue');
-        if (stats.topEscalatedClient !== 'N/A') {
-            topEscalatedClientValue.textContent = `${stats.topEscalatedClient} (${stats.topEscalatedCount})`;
-        } else {
-            topEscalatedClientValue.textContent = 'N/A';
+        const [principalWorkItemName] = findMax(byWorkItem);
+        const escalatedWorkItemCounts = {};
+        escalatedItems.forEach(item => {
+            const workItem = (item['Work Item Type'] || 'SEM CATEGORIA').toUpperCase();
+            escalatedWorkItemCounts[workItem] = (escalatedWorkItemCounts[workItem] || 0) + 1;
+        });
+        let topEscalatedWorkItem = 'N/A';
+        let maxRate = -1;
+        for (const workItem in byWorkItem) {
+            const rate = byWorkItem[workItem] > 0 ? (escalatedWorkItemCounts[workItem] || 0) / byWorkItem[workItem] : 0;
+            if (rate > maxRate) {
+                maxRate = rate;
+                topEscalatedWorkItem = `${workItem} (${(maxRate * 100).toFixed(0)}%)`;
+            }
         }
 
-        App.renderCharts(stats, App.data.currentFilter);
-        UI.renderTopClientsTable(stats.top5Clientes);
+        const totalTagsUnicas = Object.keys(byTags).length;
+        const top5Tags = Object.entries(byTags).sort(([,a],[,b]) => b-a).slice(0, 5);
+        const avgTagsPerItem = itemsWithTags > 0 ? (totalTagInstances / itemsWithTags).toFixed(1) : '0.0';
+        const escalatedTagCounts = {};
+        escalatedItems.forEach(item => {
+            (item.Tags || '').split(',').map(t => t.trim().toUpperCase()).filter(Boolean).forEach(tag => {
+                escalatedTagCounts[tag] = (escalatedTagCounts[tag] || 0) + 1;
+            });
+        });
+        const [topEscalatedTag, topEscalatedTagCount] = findMax(escalatedTagCounts);
+        
+        return {
+            totalCards, avgPerDay, byStatus, totalAtivos, totalClientesUnicos, top5Clientes,
+            topEscalatedClient: topEscalatedClient || 'N/A',
+            topEscalatedCount: topEscalatedCount || 0,
+            topResolverClient: topResolverClient || 'N/A',
+            topResolverCount: topResolverCount || 0,
+            byWorkItem, principalWorkItemName: principalWorkItemName || 'N/A', topEscalatedWorkItem,
+            totalTagsUnicas, top5Tags, avgTagsPerItem,
+            topEscalatedTag: topEscalatedTag || 'N/A',
+            topEscalatedTagCount: topEscalatedTagCount || 0
+        };
     },
 
     clearAllData: function (confirmFirst) {
@@ -291,68 +247,11 @@ const App = {
 
     openModal: function (modalId) {
         const modal = document.getElementById(modalId);
-        if (modal) {
-            modal.classList.remove('modal--hidden');
-        }
+        if (modal) modal.classList.remove('modal--hidden');
     },
     closeModal: function (modalId) {
         const modal = document.getElementById(modalId);
-        if (modal) {
-            modal.classList.add('modal--hidden');
-        }
-    },
-    renderCharts: function (stats, filter) {
-        Object.values(App.charts).forEach(chart => chart?.destroy());
-        const isDark = document.body.classList.contains('dark-theme');
-        const gridColor = isDark ? 'rgba(248, 248, 242, 0.1)' : 'rgba(0, 0, 0, 0.1)';
-        const textColor = isDark ? '#f8f8f2' : '#333';
-        const chartColors = isDark ? App.CONFIG.CHART_COLORS.dark : App.CONFIG.CHART_COLORS.light;
-        const period = filter === 'all' ? 'Geral' : filter;
-
-        document.querySelector('#status-chart-card .card-title').textContent = `Quantidade por Status (${period})`;
-        document.querySelector('#work-item-chart-card .card-title').textContent = `Quantidade por Tipo de Item (${period})`;
-        document.querySelector('#tags-chart-card .card-title').textContent = `Principais Tags (${period})`;
-
-        const chartOptions = {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
-            scales: {
-                x: { ticks: { color: textColor }, grid: { color: gridColor } },
-                y: { ticks: { color: textColor }, grid: { color: gridColor } }
-            }
-        };
-
-        const ctxStatus = document.getElementById('statusChart').getContext('2d');
-        App.charts.status = new Chart(ctxStatus, { type: 'doughnut', data: { labels: Object.keys(stats.byStatus), datasets: [{ data: Object.values(stats.byStatus), backgroundColor: chartColors }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top', labels: { color: textColor } } } } });
-
-        const tagsContainer = document.getElementById('tags-chart-card');
-        const filteredAndSortedTags = Object.entries(stats.byTags)
-            .filter(([, count]) => count >= 2)
-            .sort(([, a], [, b]) => b - a);
-        const sortedTagLabels = filteredAndSortedTags.map(item => item[0]);
-        const sortedTagData = filteredAndSortedTags.map(item => item[1]);
-        const pixelsPerTag = 35;
-        const verticalPadding = 100;
-        const minHeight = 450;
-        const dynamicHeight = (sortedTagData.length * pixelsPerTag) + verticalPadding;
-        const finalHeight = Math.max(minHeight, dynamicHeight);
-        tagsContainer.style.height = `${finalHeight}px`;
-        const tagColors = generateGreenShades(sortedTagData);
-        const ctxTags = document.getElementById('tagsChart').getContext('2d');
-        App.charts.tags = new Chart(ctxTags, {
-            type: 'bar',
-            data: { labels: sortedTagLabels, datasets: [{ data: sortedTagData, backgroundColor: tagColors }] },
-            options: { ...chartOptions, indexAxis: 'y' }
-        });
-
-        const ctxWorkItem = document.getElementById('workItemChart').getContext('2d');
-        App.charts.workItem = new Chart(ctxWorkItem, { type: 'bar', data: { labels: Object.keys(stats.byWorkItem), datasets: [{ data: Object.values(stats.byWorkItem), backgroundColor: chartColors }] }, options: chartOptions });
-    },
-
-    initializeChartsDragAndDrop: function () {
-        const container = document.getElementById('charts-container');
-        if (container) new Sortable(container, { animation: 150 });
+        if (modal) modal.classList.add('modal--hidden');
     },
     
     loadProfilePicture: function () {
@@ -376,49 +275,197 @@ const App = {
 };
 
 const UI = {
-    createMonthFilter: function (rawData) {
-        const container = document.getElementById('filters-placeholder');
-        container.innerHTML = '';
+    renderAllMonthlyBlocks: function(monthlyData) {
+        const containers = {
+            status: document.getElementById('status-group-content'),
+            estrategico: document.getElementById('estrategico-group-content'),
+            clientes: document.getElementById('clientes-group-content'),
+            tags: document.getElementById('tags-group-content')
+        };
 
-        const months = [...new Set(rawData.map(row => row[App.CONFIG.MONTH_COLUMN_NAME]).filter(Boolean))].sort();
-        if (months.length === 0) return;
+        Object.values(containers).forEach(container => {
+            if (container) container.innerHTML = '';
+        });
 
-        const filterWrapper = document.createElement('div');
-        filterWrapper.id = 'filters-container';
-        const label = document.createElement('label');
-        label.htmlFor = 'monthFilter';
-        label.textContent = 'Mês:';
-        const select = document.createElement('select');
-        select.id = 'monthFilter';
-        select.innerHTML = `<option value="all">Visão Geral</option>${months.map(m => `<option value="${m}">${m}</option>`).join('')}`;
+        const sortedMonths = Object.keys(monthlyData).sort();
 
-        filterWrapper.appendChild(label);
-        filterWrapper.appendChild(select);
-        container.appendChild(filterWrapper);
+        sortedMonths.forEach(month => {
+            const monthStats = App.processData(monthlyData[month]);
+            for (const groupType in containers) {
+                if (containers[groupType]) {
+                    const subGroup = this.createMonthlySubgroup(month, monthStats, groupType);
+                    containers[groupType].appendChild(subGroup);
+                }
+            }
+        });
     },
-    renderTopClientsTable: function(top5Data) {
-        const container = document.getElementById('topClientsTableContainer');
-        container.innerHTML = '';
 
-        if (top5Data && top5Data.length > 0) {
-            const table = document.createElement('table');
-            table.className = 'dashboard-table';
-            
-            table.innerHTML = `<thead><tr><th>Top 5 Clientes</th><th>Qtd</th><th>Principal Item</th><th>Principal Tag</th></tr></thead>`;
-            
-            const tbody = document.createElement('tbody');
-            top5Data.forEach(item => {
-                const row = tbody.insertRow();
-                row.insertCell().textContent = (item.name || '-').toLowerCase();
-                row.insertCell().textContent = item.count || 0;
-                row.insertCell().textContent = (item.topWorkItem || '-').toLowerCase();
-                row.insertCell().textContent = (item.topTag || '-').toLowerCase();
-            });
-            table.appendChild(tbody);
-            container.appendChild(table);
-        } else {
-            container.innerHTML = '<p style="font-size: 0.9em; text-align: center;">Nenhum dado de cliente para exibir.</p>';
+createMonthlySubgroup: function(month, stats, groupType) {
+    const subGroupWrapper = document.createElement('div');
+    // Adiciona uma classe para que o CSS possa estilizar o bloco do mês
+    subGroupWrapper.className = 'monthly-subgroup'; 
+    const groupId = `subgroup-${groupType}-${month.replace(/\s+/g, '-')}`;
+    subGroupWrapper.id = groupId;
+    
+    const header = document.createElement('h3');
+    header.className = 'group-header collapsed';
+    header.innerHTML = `<span>${month}</span><span class="toggle-icon">+</span>`;
+
+    const content = document.createElement('div');
+    content.className = 'group-content collapsed';
+
+    const gridWrapper = document.createElement('div');
+    gridWrapper.className = 'metrics-grid';
+    const cards = this.getCardsForGroup(stats, groupType);
+    gridWrapper.append(...cards);
+    content.appendChild(gridWrapper);
+
+    subGroupWrapper.append(header, content);
+    header.addEventListener('click', () => UI.toggleGroup(header));
+
+    return subGroupWrapper;
+},
+
+    getCardsForGroup: function(stats, groupType) {
+        const cards = [];
+        switch(groupType) {
+            case 'status': {
+                cards.push(
+                    this.createMetricCard(stats.avgPerDay, 'Média / Dia Útil'),
+                    this.createMetricCard(stats.totalAtivos, 'Tickets Ativos'),
+                    this.createListCard('Distribuição por Status', stats.byStatus)
+                );
+                break;
+            }
+            case 'estrategico': {
+                cards.push(
+                    this.createMetricCard(stats.totalCards, 'Total de Work Items'),
+                    this.createMetricCard(stats.principalWorkItemName, 'Principal Work Item', true),
+                    this.createMetricCard(stats.topEscalatedWorkItem, 'Item com Maior Taxa de Escalonamento', true),
+                    this.createListCard('Distribuição por Tipo de Item', stats.byWorkItem)
+                );
+                break;
+            }
+            case 'clientes': {
+                const escalatedText = stats.topEscalatedClient !== 'N/A' ? `${stats.topEscalatedClient} (${stats.topEscalatedCount})` : 'N/A';
+                const resolverText = stats.topResolverClient !== 'N/A' ? `${stats.topResolverClient} (${stats.topResolverCount})` : 'N/A';
+                const listCardData = Object.fromEntries(stats.top5Clientes.map(item => [item.name, item.count]));
+                cards.push(
+                    this.createMetricCard(stats.totalClientesUnicos, 'Clientes Únicos'),
+                    this.createMetricCard(escalatedText, 'Cliente Mais Escalonado', true),
+                    this.createMetricCard(resolverText, 'Cliente com Mais Resolvidos', true),
+                    this.createListCard('Top 5 Clientes', listCardData)
+                );
+                break;
+            }
+            case 'tags': {
+                const escalatedText = stats.topEscalatedTag !== 'N/A' ? `${stats.topEscalatedTag} (${stats.topEscalatedTagCount})` : 'N/A';
+                const listCardData = Object.fromEntries(stats.top5Tags);
+                cards.push(
+                    this.createMetricCard(stats.totalTagsUnicas, 'Tags Únicas'),
+                    this.createMetricCard(stats.avgTagsPerItem, 'Média de Tags por Item'),
+                    this.createMetricCard(escalatedText, 'Tag Mais Escalonada', true),
+                    this.createListCard('Top 5 Tags', listCardData)
+                );
+                break;
+            }
         }
+        return cards;
+    },
+    
+    createMetricCard: function(value, label, isTextValue = false) {
+        const card = document.createElement('div');
+        card.className = isTextValue ? 'metric-card card metric-card--text-value' : 'metric-card card';
+        card.innerHTML = `<p class="value">${value}</p><p class="label">${label}</p>`;
+        return card;
+    },
+
+    createListCard: function(title, data) {
+        const card = document.createElement('div');
+        card.className = 'metric-card card list-card';
+        this._renderDistributionList(card, title, data);
+        return card;
+    },
+    
+    _renderDistributionList: function(container, titleText, dataObject) {
+        container.innerHTML = '';
+        const title = document.createElement('p');
+        title.className = 'list-title';
+        title.textContent = titleText;
+        container.appendChild(title);
+        const list = document.createElement('ul');
+        list.className = 'status-list';
+        const sortedData = Object.entries(dataObject).sort(([,a],[,b]) => b-a);
+        if (sortedData.length > 0) {
+            sortedData.forEach(([name, count]) => {
+                const listItem = document.createElement('li');
+                listItem.innerHTML = `<span class="status-name">${name.toLowerCase()}</span><span class="status-count">${count}</span>`;
+                list.appendChild(listItem);
+            });
+        } else {
+            list.innerHTML = '<li>Nenhum dado.</li>';
+        }
+        container.appendChild(list);
+    },
+
+    toggleGroup: function(header) {
+        const content = header.nextElementSibling;
+        const icon = header.querySelector('.toggle-icon');
+        const isCollapsed = content.classList.contains('collapsed');
+        const parentId = header.parentElement.id;
+
+        if (isCollapsed) {
+            content.classList.remove('collapsed');
+            header.classList.remove('collapsed');
+            icon.textContent = '-';
+            content.style.maxHeight = content.scrollHeight + 'px';
+            localStorage.setItem(`groupState-${parentId}`, 'expanded');
+        } else {
+            content.classList.add('collapsed');
+            header.classList.add('collapsed');
+            icon.textContent = '+';
+            content.style.maxHeight = null;
+            localStorage.setItem(`groupState-${parentId}`, 'collapsed');
+        }
+
+        this.updateParentHeight(header);
+    },
+
+    updateParentHeight: function(element) {
+        const parentContent = element.parentElement.closest('.group-content');
+        if (parentContent && !parentContent.classList.contains('collapsed')) {
+            setTimeout(() => {
+                parentContent.style.maxHeight = parentContent.scrollHeight + 'px';
+                this.updateParentHeight(parentContent);
+            }, 400); // Espera a animação do filho terminar
+        }
+    },
+
+    applySavedStates: function() {
+        const headers = document.querySelectorAll('.group-header');
+        headers.forEach(header => {
+            const parentId = header.parentElement.id;
+            if (!parentId) return;
+
+            const savedState = localStorage.getItem(`groupState-${parentId}`);
+            if (savedState === 'expanded') {
+                const content = header.nextElementSibling;
+                const icon = header.querySelector('.toggle-icon');
+                
+                content.style.transition = 'none'; // Abre sem animar
+
+                header.classList.remove('collapsed');
+                content.classList.remove('collapsed');
+                icon.textContent = '-';
+                content.style.maxHeight = content.scrollHeight + 'px';
+
+                this.updateParentHeight(header); // Garante que os pais também se ajustem
+                
+                setTimeout(() => {
+                    content.style.transition = ''; // Reativa a animação
+                }, 10);
+            }
+        });
     }
 };
 
@@ -439,9 +486,6 @@ const ThemeSwitcher = {
             this.toggleButton.textContent = '🌙';
         }
         localStorage.setItem('theme', theme);
-        if (App.data && App.data.stats) {
-            App.renderCharts(App.data.stats, App.data.currentFilter);
-        }
     },
     toggleTheme: function () {
         const currentTheme = document.body.classList.contains('dark-theme') ? 'dark' : 'light';
@@ -482,7 +526,6 @@ const EditableSection = {
             const item = section.data.find(i => i.id == id);
             if (button.classList.contains('edit-btn')) { this.showEditor(section, item); }
             else if (button.classList.contains('delete-btn')) { this.deleteItem(section, id); }
-            else if (button.classList.contains('view-btn')) { this.viewItem(item); }
         });
         section.elements.editor.toolbar.addEventListener('click', (e) => {
             const button = e.target.closest('button');
@@ -502,7 +545,7 @@ const EditableSection = {
         section.data.forEach(item => {
             const itemEl = document.createElement('div');
             itemEl.className = 'item';
-            itemEl.innerHTML = `<span class="item-title">${item.title}</span><div class="item-actions"><button data-id="${item.id}" class="view-btn">👁️</button><button data-id="${item.id}" class="edit-btn">✏️</button><button data-id="${item.id}" class="delete-btn">🗑️</button></div>`;
+            itemEl.innerHTML = `<span class="item-title">${item.title}</span><div class="item-actions"><button data-id="${item.id}" class="edit-btn">✏️</button><button data-id="${item.id}" class="delete-btn">🗑️</button></div>`;
             section.elements.list.appendChild(itemEl);
         });
     },
@@ -539,12 +582,6 @@ const EditableSection = {
             this.renderList(section);
         }
     },
-    viewItem: function (item) {
-        const viewWindow = window.open('', '_blank');
-        viewWindow.document.write(`<html><head><title>${item.title}</title><style>body{font-family:sans-serif;padding:2rem;color:${document.body.classList.contains('dark-theme') ? '#f8f8f2' : '#333'};background:${document.body.classList.contains('dark-theme') ? '#282a36' : '#fff'};} img {max-width: 100%; height: auto;}</style></head><body><h1>${item.title}</h1><hr><div>${item.content}</div></body></html>`);
-        viewWindow.document.close();
-    }
 };
 
-// --- Ponto de Entrada Principal ---
 document.addEventListener('DOMContentLoaded', App.init);
