@@ -90,13 +90,10 @@
     <div class="container">
         <div class="main-header">
             <h1 class="main-title">Dashboard de Performance Profissional</h1>
-            <div id="filters-placeholder" class="filters-container">
-                <div class="filter-group">
-                    <label for="analyst-filter">Visão do Analista:</label>
-                    <select id="analyst-filter" multiple>
-                        </select>
-                </div>
-                </div>
+            <div class="view-controls">
+                <button id="expand-all-btn">Expandir Tudo</button>
+                <button id="collapse-all-btn">Recolher Tudo</button>
+            </div>
         </div>
         
         <header class="header">
@@ -109,6 +106,28 @@
                 <p id="headerRole">Seu Cargo</p>
             </div>
         </header>
+
+        <div id="group-filters" class="metrics-group">
+            <h2 class="group-header collapsed">
+                <span>⚙️ Filtros e Visão</span>
+                <span class="toggle-icon">+</span>
+            </h2>
+            <div id="filters-group-content" class="group-content collapsed">
+                <div id="analyst-filter-container" class="filter-group">
+                    <label for="analyst-filter">Visão do Analista:</label>
+                    <select id="analyst-filter" multiple>
+                        </select>
+                </div>
+                <div class="tabs-container">
+                    <button class="tab-btn active" data-filter-type="geral">Geral</button>
+                    <button class="tab-btn" data-filter-type="cliente">Por Cliente</button>
+                    <button class="tab-btn" data-filter-type="item">Por Item</button>
+                    <button class="tab-btn" data-filter-type="tag">Por Tag</button>
+                </div>
+                <div id="global-filters-container">
+                    </div>
+            </div>
+        </div>
 
         <div id="group-status" class="metrics-group">
             <h2 class="group-header collapsed">
