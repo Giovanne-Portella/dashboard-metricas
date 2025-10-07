@@ -90,7 +90,13 @@
     <div class="container">
         <div class="main-header">
             <h1 class="main-title">Dashboard de Performance Profissional</h1>
-            <div id="filters-placeholder"></div>
+            <div id="filters-placeholder" class="filters-container">
+                <div class="filter-group">
+                    <label for="analyst-filter">Visão do Analista:</label>
+                    <select id="analyst-filter" multiple>
+                        </select>
+                </div>
+                </div>
         </div>
         
         <header class="header">
@@ -103,17 +109,10 @@
                 <p id="headerRole">Seu Cargo</p>
             </div>
         </header>
-        <div class="portals-grid">
-            <div class="portal-card card" id="openAtuacoesModal">
-                <h3>Atuações Principais</h3>
-            </div>
-            <div class="portal-card card" id="openDesenvolvimentoModal">
-                <h3>Desenvolvimento</h3>
-            </div>
-        </div>
+
         <div id="group-status" class="metrics-group">
             <h2 class="group-header collapsed">
-                <span>Status</span>
+                <span>📌 Grupo de Status</span>
                 <span class="toggle-icon">+</span>
             </h2>
             <div id="status-group-content" class="group-content collapsed">
@@ -122,7 +121,7 @@
 
         <div id="group-estrategico" class="metrics-group">
             <h2 class="group-header collapsed">
-                <span>Itens</span>
+                <span>🧠 Grupo Estratégico</span>
                 <span class="toggle-icon">+</span>
             </h2>
             <div id="estrategico-group-content" class="group-content collapsed">
@@ -131,7 +130,7 @@
 
         <div id="group-clientes" class="metrics-group">
             <h2 class="group-header collapsed">
-                <span>Clientes</span>
+                <span>🧩 Grupo de Clientes</span>
                 <span class="toggle-icon">+</span>
             </h2>
             <div id="clientes-group-content" class="group-content collapsed">
@@ -140,11 +139,20 @@
         
         <div id="group-tags" class="metrics-group">
             <h2 class="group-header collapsed">
-                <span>Tags</span>
+                <span>🏷️ Grupo de Tags</span>
                 <span class="toggle-icon">+</span>
             </h2>
             <div id="tags-group-content" class="group-content collapsed">
                 </div>
+        </div>
+
+        <div class="portals-grid">
+            <div class="portal-card card" id="openAtuacoesModal">
+                <h3>Atuações Principais</h3>
+            </div>
+            <div class="portal-card card" id="openDesenvolvimentoModal">
+                <h3>Desenvolvimento</h3>
+            </div>
         </div>
     </div>
 

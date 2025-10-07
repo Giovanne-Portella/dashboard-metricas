@@ -339,7 +339,7 @@ body:not(.dark-theme) .file-label:hover {
 
 .metric-card {
     text-align: center;
-    flex: 1 1 200px; /* Base de largura um pouco maior */
+    flex: 1 1 200px;
     display: flex;
     flex-direction: column;
     justify-content: center;
@@ -347,10 +347,10 @@ body:not(.dark-theme) .file-label:hover {
 
 .metric-card .value {
     color: var(--primary-color);
-    font-size: 1.6em;
+    font-size: 2.2em;
     font-weight: 700;
     margin: 0;
-    min-height: 60px;
+    min-height: 50px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -358,7 +358,7 @@ body:not(.dark-theme) .file-label:hover {
 
 .metric-card .label {
     color: var(--text-color-secondary);
-    font-size: 1em;
+    font-size: 0.9em;
     margin-top: 5px;
 }
 
@@ -526,30 +526,6 @@ body.dark-theme .fixed-btn--bottom-left:hover {
     background-color: #505d84;
 }
 
-#filters-placeholder {
-    display: flex;
-    align-items: center;
-}
-
-#filters-container label {
-    font-weight: 500;
-    color: var(--text-color-secondary);
-    margin-right: 10px;
-}
-
-#filters-container select {
-    padding: 8px 12px;
-    border-radius: 8px;
-    border: 1px solid var(--border-color);
-    background-color: var(--surface-color);
-    color: var(--text-color);
-    font-family: inherit;
-    font-size: 0.95em;
-    cursor: pointer;
-    min-width: 150px;
-}
-
-/* --- NOVOS ESTILOS PARA GRUPOS DE MÉTRICAS --- */
 .metrics-group {
     background-color: var(--surface-color);
     border-radius: 12px;
@@ -574,17 +550,18 @@ body.dark-theme .fixed-btn--bottom-left:hover {
     transition: transform 0.3s ease;
 }
 
-.group-content {
-    padding: 0 20px 20px;
-    overflow: hidden;
-    transition: max-height 0.4s ease-out;
-    max-height: 1000px; /* Altura grande para garantir que o conteúdo caiba */
-}
-
 .group-content.collapsed {
     max-height: 0;
     padding-top: 0;
     padding-bottom: 0;
+    border-width: 0;
+    overflow: hidden;
+}
+
+.group-content {
+    padding: 0 20px 20px;
+    overflow: hidden;
+    transition: max-height 0.4s ease-out;
 }
 
 .group-header.collapsed .toggle-icon {
@@ -595,7 +572,7 @@ body.dark-theme .fixed-btn--bottom-left:hover {
     justify-content: flex-start;
     align-items: flex-start;
     text-align: left;
-    flex: 1 1 300px; /* Permite que cresça mais */
+    flex: 1 1 300px;
 }
 
 .status-list {
@@ -627,17 +604,65 @@ body.dark-theme .fixed-btn--bottom-left:hover {
     color: var(--primary-color);
 }
 
-.metrics-group > .group-content {
-    display: flex;
-    flex-direction: row; /* Alinha os itens (meses) horizontalmente */
-    flex-wrap: wrap;     /* Permite que os meses quebrem para a linha de baixo se não houver espaço */
-    align-items: flex-start; /* Alinha os blocos de meses pelo topo */
-    gap: 20px;           /* Espaço entre os blocos dos meses */
+.list-card .list-title {
+    font-weight: 600;
+    color: var(--text-color-secondary);
+    font-size: 1em;
+    margin-bottom: 10px;
+    text-align: center;
 }
 
-/* Define o tamanho de cada bloco de mês */
+/* --- ESTILOS PARA LAYOUT LADO A LADO --- */
+.metrics-group > .group-content {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 20px;
+}
+
 .monthly-subgroup {
-    flex-grow: 1; /* Permite que o bloco cresça para ocupar o espaço disponível */
-    flex-basis: 400px; /* Define uma largura base, evitando que fiquem muito pequenos */
-    min-width: 350px; /* Garante uma largura mínima em telas menores */
+    flex-grow: 1;
+    flex-basis: 400px;
+    min-width: 350px;
+    background-color: var(--background-color);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+}
+
+.monthly-subgroup .group-header {
+    font-size: 1.2em;
+    padding: 12px 15px;
+}
+
+/* --- ESTILOS PARA FILTROS GLOBAIS --- */
+.filters-container {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+}
+
+.filter-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.filter-group label {
+    font-weight: 500;
+    color: var(--text-color-secondary);
+}
+
+#analyst-filter {
+    border: 1px solid var(--border-color);
+    background-color: var(--surface-color);
+    border-radius: 8px;
+    padding: 8px;
+    color: var(--text-color);
+    min-width: 250px;
+    height: 100px; /* Altura para mostrar múltiplas opções */
+}
+
+#analyst-filter:focus {
+    outline: 2px solid var(--primary-color);
 }

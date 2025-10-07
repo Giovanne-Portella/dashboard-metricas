@@ -2,13 +2,13 @@
 
 const App = {
     data: {
-        stats: null,
-        fullRawData: [],
+        fullRawData: [], // Armazena todos os dados do CSV
     },
     CONFIG: {
         WORKING_DAYS: 21,
         MONTH_COLUMN_NAME: 'Created Date',
         CLIENT_COLUMN_NAME: 'Cliente',
+        ANALYST_COLUMN_NAME: 'Assigned To', // Nova configuração para a coluna do analista
     },
 
     init: function () {
@@ -25,8 +25,15 @@ const App = {
             const storedUserInfo = localStorage.getItem('userInfo');
 
             if (storedRawData && storedUserInfo) {
-                App.initializeDashboard(JSON.parse(storedRawData), JSON.parse(storedUserInfo));
+                // Se houver dados salvos, inicializa o dashboard com eles
+                const rawData = JSON.parse(storedRawData);
+                App.data.fullRawData = rawData;
+                App.displayUserInfo(JSON.parse(storedUserInfo));
+                UI.populateAnalystFilter(rawData); // Popula o filtro de analistas
+                App.updateDashboard(); // Renderiza o dashboard com a visão padrão
+                App.loadProfilePicture();
             } else {
+                // Se não, mostra a tela de login/setup
                 App.openModal('setupModal');
             }
         } catch (e) {
@@ -47,26 +54,55 @@ const App = {
 
         document.querySelectorAll('.close-btn').forEach(btn => {
             const modalId = btn.dataset.modalId;
-            if (modalId) {
-                btn.addEventListener('click', () => App.closeModal(modalId));
-            }
+            if (modalId) btn.addEventListener('click', () => App.closeModal(modalId));
         });
 
-        document.querySelectorAll('.group-header').forEach(header => {
+        // Event listener para o novo filtro de analistas
+        document.getElementById('analyst-filter').addEventListener('change', () => {
+            App.updateDashboard();
+        });
+        
+        // CORREÇÃO: Voltando ao método anterior de adicionar listeners, que é mais estável.
+        // Adiciona o evento de clique para os cabeçalhos dos grupos PRINCIPAIS que já existem na página.
+        document.querySelectorAll('.metrics-group > .group-header').forEach(header => {
             header.addEventListener('click', () => UI.toggleGroup(header));
         });
     },
 
+    // Função central que agora re-renderiza todo o dashboard com base nos filtros
+    updateDashboard: function() {
+        // 1. Pega os analistas selecionados no filtro
+        const selectedAnalysts = UI.getSelectedAnalysts();
+
+        // 2. Filtra os dados brutos com base na seleção
+        let filteredData;
+        if (selectedAnalysts.includes('__OVERALL__') || selectedAnalysts.length === 0) {
+            // Se "Visão Geral" está selecionada ou nada selecionado, usa todos os dados
+            filteredData = App.data.fullRawData;
+        } else {
+            // Senão, filtra pelos nomes dos analistas
+            filteredData = App.data.fullRawData.filter(row => 
+                selectedAnalysts.includes(row[this.CONFIG.ANALYST_COLUMN_NAME])
+            );
+        }
+        
+        // 3. Agrupa os dados filtrados por mês
+        const monthlyData = this.groupDataByMonth(filteredData);
+        
+        // 4. Renderiza todos os blocos com os dados finais
+        UI.renderAllMonthlyBlocks(monthlyData);
+        
+        // 5. Aplica os estados de expandir/recolher salvos
+        UI.applySavedStates();
+    },
+
+    // Função de inicialização foi simplificada
     initializeDashboard: function (rawData, userInfo) {
         App.data.fullRawData = rawData;
         App.displayUserInfo(userInfo);
-        
-        const monthlyData = this.groupDataByMonth(rawData);
-        UI.renderAllMonthlyBlocks(monthlyData);
-
+        UI.populateAnalystFilter(rawData);
+        App.updateDashboard();
         App.loadProfilePicture();
-        
-        UI.applySavedStates();
     },
     
     groupDataByMonth: function(data) {
@@ -75,21 +111,11 @@ const App = {
         data.forEach(row => {
             const month = row[monthColumn];
             if (month) {
-                if (!groups[month]) {
-                    groups[month] = [];
-                }
+                if (!groups[month]) groups[month] = [];
                 groups[month].push(row);
             }
         });
         return groups;
-    },
-
-    handleMouseMove: function (e) {
-        const { clientX, clientY } = e;
-        const x = Math.round((clientX / window.innerWidth) * 100);
-        const y = Math.round((clientY / window.innerHeight) * 100);
-        document.body.style.setProperty('--mouse-x', `${x}%`);
-        document.body.style.setProperty('--mouse-y', `${y}%`);
     },
 
     handleFileSelect: function (event) {
@@ -108,9 +134,11 @@ const App = {
         reader.onload = function (e) {
             try {
                 const rawData = App.parseCSV(e.target.result);
+                // Salva os dados para persistência
                 localStorage.setItem('rawDashboardData', JSON.stringify(rawData));
                 localStorage.setItem('userInfo', JSON.stringify(userInfo));
                 App.closeModal('setupModal');
+                // Inicializa o dashboard pela primeira vez
                 App.initializeDashboard(rawData, userInfo);
             } catch (err) {
                 alert("Erro ao processar o arquivo CSV.");
@@ -141,44 +169,33 @@ const App = {
             if (Object.keys(obj).length === 0) return [null, 0];
             return Object.entries(obj).reduce((a, b) => a[1] > b[1] ? a : b);
         };
-
         const normalizeClientName = (name) => {
             if (typeof name !== 'string' || !name.trim()) return 'SEM CATEGORIA';
             return name.trim().toUpperCase().split(' ')[0];
         };
-
         const byStatus = {};
         const byWorkItem = {};
         const byTags = {};
         const dataByClient = {};
         let totalTagInstances = 0;
         const itemsWithTags = data.filter(item => item.Tags && item.Tags.trim() !== '').length;
-
         data.forEach(item => {
             const status = (item.State || 'SEM CATEGORIA').toUpperCase();
             const workItem = (item['Work Item Type'] || 'SEM CATEGORIA').toUpperCase();
             byStatus[status] = (byStatus[status] || 0) + 1;
             byWorkItem[workItem] = (byWorkItem[workItem] || 0) + 1;
-
             const clientName = normalizeClientName(item[App.CONFIG.CLIENT_COLUMN_NAME]);
             if (!dataByClient[clientName]) dataByClient[clientName] = [];
             dataByClient[clientName].push(item);
-            
             const tags = (item.Tags || '').split(',').map(t => t.trim().toUpperCase()).filter(Boolean);
             totalTagInstances += tags.length;
             tags.forEach(tag => byTags[tag] = (byTags[tag] || 0) + 1);
         });
-
         const totalCards = data.length;
         const totalAtivos = totalCards - (byStatus['FECHADO'] || 0) - (byStatus['RESOLVIDO'] || 0);
         const avgPerDay = (totalCards / App.CONFIG.WORKING_DAYS).toFixed(1);
-
         const totalClientesUnicos = Object.keys(dataByClient).filter(name => name !== 'GERAL' && name !== 'SEM CATEGORIA').length;
-        const top5Clientes = Object.entries(dataByClient)
-            .map(([name, items]) => ({ name, count: items.length }))
-            .sort((a, b) => b.count - a.count)
-            .slice(0, 5);
-
+        const top5Clientes = Object.entries(dataByClient).map(([name, items]) => ({ name, count: items.length })).sort((a, b) => b.count - a.count).slice(0, 5);
         const escalatedItems = data.filter(item => (item.State || '').toUpperCase() === 'ESCALONADO ENGENHARIA');
         const escalatedClientCounts = {};
         escalatedItems.forEach(item => {
@@ -188,7 +205,6 @@ const App = {
             }
         });
         const [topEscalatedClient, topEscalatedCount] = findMax(escalatedClientCounts);
-
         const resolvedItems = data.filter(item => ['FECHADO', 'RESOLVIDO'].includes((item.State || '').toUpperCase()));
         const resolvedClientCounts = {};
         resolvedItems.forEach(item => {
@@ -198,7 +214,6 @@ const App = {
             }
         });
         const [topResolverClient, topResolverCount] = findMax(resolvedClientCounts);
-
         const [principalWorkItemName] = findMax(byWorkItem);
         const escalatedWorkItemCounts = {};
         escalatedItems.forEach(item => {
@@ -214,7 +229,6 @@ const App = {
                 topEscalatedWorkItem = `${workItem} (${(maxRate * 100).toFixed(0)}%)`;
             }
         }
-
         const totalTagsUnicas = Object.keys(byTags).length;
         const top5Tags = Object.entries(byTags).sort(([,a],[,b]) => b-a).slice(0, 5);
         const avgTagsPerItem = itemsWithTags > 0 ? (totalTagInstances / itemsWithTags).toFixed(1) : '0.0';
@@ -225,17 +239,11 @@ const App = {
             });
         });
         const [topEscalatedTag, topEscalatedTagCount] = findMax(escalatedTagCounts);
-        
         return {
-            totalCards, avgPerDay, byStatus, totalAtivos, totalClientesUnicos, top5Clientes,
-            topEscalatedClient: topEscalatedClient || 'N/A',
-            topEscalatedCount: topEscalatedCount || 0,
-            topResolverClient: topResolverClient || 'N/A',
-            topResolverCount: topResolverCount || 0,
-            byWorkItem, principalWorkItemName: principalWorkItemName || 'N/A', topEscalatedWorkItem,
-            totalTagsUnicas, top5Tags, avgTagsPerItem,
-            topEscalatedTag: topEscalatedTag || 'N/A',
-            topEscalatedTagCount: topEscalatedTagCount || 0
+            totalCards, avgPerDay, byStatus, totalAtivos, totalClientesUnicos, top5Clientes, topEscalatedClient: topEscalatedClient || 'N/A',
+            topEscalatedCount: topEscalatedCount || 0, topResolverClient: topResolverClient || 'N/A', topResolverCount: topResolverCount || 0,
+            byWorkItem, principalWorkItemName: principalWorkItemName || 'N/A', topEscalatedWorkItem, totalTagsUnicas, top5Tags, avgTagsPerItem,
+            topEscalatedTag: topEscalatedTag || 'N/A', topEscalatedTagCount: topEscalatedTagCount || 0
         };
     },
 
@@ -245,14 +253,8 @@ const App = {
         window.location.reload();
     },
 
-    openModal: function (modalId) {
-        const modal = document.getElementById(modalId);
-        if (modal) modal.classList.remove('modal--hidden');
-    },
-    closeModal: function (modalId) {
-        const modal = document.getElementById(modalId);
-        if (modal) modal.classList.add('modal--hidden');
-    },
+    openModal: function (modalId) { document.getElementById(modalId)?.classList.remove('modal--hidden'); },
+    closeModal: function (modalId) { document.getElementById(modalId)?.classList.add('modal--hidden'); },
     
     loadProfilePicture: function () {
         const imageUrl = localStorage.getItem('profilePicture');
@@ -272,9 +274,43 @@ const App = {
     displayProfilePicture: function (imageUrl) {
         document.getElementById('profilePicContainer').innerHTML = `<img src="${imageUrl}" alt="Foto de Perfil">`;
     },
+    
+    handleMouseMove: function (e) {
+        const { clientX, clientY } = e;
+        const x = Math.round((clientX / window.innerWidth) * 100);
+        const y = Math.round((clientY / window.innerHeight) * 100);
+        document.body.style.setProperty('--mouse-x', `${x}%`);
+        document.body.style.setProperty('--mouse-y', `${y}%`);
+    },
 };
 
 const UI = {
+    populateAnalystFilter: function(rawData) {
+        const filterElement = document.getElementById('analyst-filter');
+        filterElement.innerHTML = ''; 
+
+        const analystNames = [...new Set(rawData.map(row => row[App.CONFIG.ANALYST_COLUMN_NAME]).filter(Boolean))];
+        analystNames.sort();
+
+        const overallOption = document.createElement('option');
+        overallOption.value = '__OVERALL__'; 
+        overallOption.textContent = 'Visão Geral';
+        overallOption.selected = true; 
+        filterElement.appendChild(overallOption);
+
+        analystNames.forEach(name => {
+            const option = document.createElement('option');
+            option.value = name;
+            option.textContent = name.split('<')[0].trim();
+            filterElement.appendChild(option);
+        });
+    },
+
+    getSelectedAnalysts: function() {
+        const filterElement = document.getElementById('analyst-filter');
+        return Array.from(filterElement.selectedOptions).map(option => option.value);
+    },
+
     renderAllMonthlyBlocks: function(monthlyData) {
         const containers = {
             status: document.getElementById('status-group-content'),
@@ -282,13 +318,10 @@ const UI = {
             clientes: document.getElementById('clientes-group-content'),
             tags: document.getElementById('tags-group-content')
         };
-
         Object.values(containers).forEach(container => {
             if (container) container.innerHTML = '';
         });
-
         const sortedMonths = Object.keys(monthlyData).sort();
-
         sortedMonths.forEach(month => {
             const monthStats = App.processData(monthlyData[month]);
             for (const groupType in containers) {
@@ -300,75 +333,49 @@ const UI = {
         });
     },
 
-createMonthlySubgroup: function(month, stats, groupType) {
-    const subGroupWrapper = document.createElement('div');
-    // Adiciona uma classe para que o CSS possa estilizar o bloco do mês
-    subGroupWrapper.className = 'monthly-subgroup'; 
-    const groupId = `subgroup-${groupType}-${month.replace(/\s+/g, '-')}`;
-    subGroupWrapper.id = groupId;
-    
-    const header = document.createElement('h3');
-    header.className = 'group-header collapsed';
-    header.innerHTML = `<span>${month}</span><span class="toggle-icon">+</span>`;
+    createMonthlySubgroup: function(month, stats, groupType) {
+        const subGroupWrapper = document.createElement('div');
+        subGroupWrapper.className = 'monthly-subgroup'; 
+        const groupId = `subgroup-${groupType}-${month.replace(/\s+/g, '-')}`;
+        subGroupWrapper.id = groupId;
+        const header = document.createElement('h3');
+        header.className = 'group-header collapsed';
+        header.innerHTML = `<span>${month}</span><span class="toggle-icon">+</span>`;
+        
+        // CORREÇÃO: Adicionando listener de clique diretamente ao header criado dinamicamente
+        header.addEventListener('click', () => UI.toggleGroup(header));
 
-    const content = document.createElement('div');
-    content.className = 'group-content collapsed';
-
-    const gridWrapper = document.createElement('div');
-    gridWrapper.className = 'metrics-grid';
-    const cards = this.getCardsForGroup(stats, groupType);
-    gridWrapper.append(...cards);
-    content.appendChild(gridWrapper);
-
-    subGroupWrapper.append(header, content);
-    header.addEventListener('click', () => UI.toggleGroup(header));
-
-    return subGroupWrapper;
-},
+        const content = document.createElement('div');
+        content.className = 'group-content collapsed';
+        const gridWrapper = document.createElement('div');
+        gridWrapper.className = 'metrics-grid';
+        const cards = this.getCardsForGroup(stats, groupType);
+        gridWrapper.append(...cards);
+        content.appendChild(gridWrapper);
+        subGroupWrapper.append(header, content);
+        return subGroupWrapper;
+    },
 
     getCardsForGroup: function(stats, groupType) {
         const cards = [];
         switch(groupType) {
-            case 'status': {
-                cards.push(
-                    this.createMetricCard(stats.avgPerDay, 'Média / Dia Útil'),
-                    this.createMetricCard(stats.totalAtivos, 'Tickets Ativos'),
-                    this.createListCard('Distribuição por Status', stats.byStatus)
-                );
+            case 'status':
+                cards.push(this.createMetricCard(stats.avgPerDay, 'Média / Dia Útil'), this.createMetricCard(stats.totalAtivos, 'Tickets Ativos'), this.createListCard('Distribuição por Status', stats.byStatus));
                 break;
-            }
-            case 'estrategico': {
-                cards.push(
-                    this.createMetricCard(stats.totalCards, 'Total de Work Items'),
-                    this.createMetricCard(stats.principalWorkItemName, 'Principal Work Item', true),
-                    this.createMetricCard(stats.topEscalatedWorkItem, 'Item com Maior Taxa de Escalonamento', true),
-                    this.createListCard('Distribuição por Tipo de Item', stats.byWorkItem)
-                );
+            case 'estrategico':
+                cards.push(this.createMetricCard(stats.totalCards, 'Total de Work Items'), this.createMetricCard(stats.principalWorkItemName, 'Principal Work Item', true), this.createMetricCard(stats.topEscalatedWorkItem, 'Item com Maior Taxa de Escalonamento', true), this.createListCard('Distribuição por Tipo de Item', stats.byWorkItem));
                 break;
-            }
-            case 'clientes': {
-                const escalatedText = stats.topEscalatedClient !== 'N/A' ? `${stats.topEscalatedClient} (${stats.topEscalatedCount})` : 'N/A';
+            case 'clientes':
+                const escalatedTextClient = stats.topEscalatedClient !== 'N/A' ? `${stats.topEscalatedClient} (${stats.topEscalatedCount})` : 'N/A';
                 const resolverText = stats.topResolverClient !== 'N/A' ? `${stats.topResolverClient} (${stats.topResolverCount})` : 'N/A';
-                const listCardData = Object.fromEntries(stats.top5Clientes.map(item => [item.name, item.count]));
-                cards.push(
-                    this.createMetricCard(stats.totalClientesUnicos, 'Clientes Únicos'),
-                    this.createMetricCard(escalatedText, 'Cliente Mais Escalonado', true),
-                    this.createMetricCard(resolverText, 'Cliente com Mais Resolvidos', true),
-                    this.createListCard('Top 5 Clientes', listCardData)
-                );
+                const listCardDataClient = Object.fromEntries(stats.top5Clientes.map(item => [item.name, item.count]));
+                cards.push(this.createMetricCard(stats.totalClientesUnicos, 'Clientes Únicos'), this.createMetricCard(escalatedTextClient, 'Cliente Mais Escalonado', true), this.createMetricCard(resolverText, 'Cliente com Mais Resolvidos', true), this.createListCard('Top 5 Clientes', listCardDataClient));
                 break;
-            }
-            case 'tags': {
-                const escalatedText = stats.topEscalatedTag !== 'N/A' ? `${stats.topEscalatedTag} (${stats.topEscalatedTagCount})` : 'N/A';
-                const listCardData = Object.fromEntries(stats.top5Tags);
-                cards.push(
-                    this.createMetricCard(stats.totalTagsUnicas, 'Tags Únicas'),
-                    this.createMetricCard(stats.avgTagsPerItem, 'Média de Tags por Item'),
-                    this.createMetricCard(escalatedText, 'Tag Mais Escalonada', true),
-                    this.createListCard('Top 5 Tags', listCardData)
-                );
+            case 'tags':
+                const escalatedTextTag = stats.topEscalatedTag !== 'N/A' ? `${stats.topEscalatedTag} (${stats.topEscalatedTagCount})` : 'N/A';
+                const listCardDataTag = Object.fromEntries(stats.top5Tags);
+                cards.push(this.createMetricCard(stats.totalTagsUnicas, 'Tags Únicas'), this.createMetricCard(stats.avgTagsPerItem, 'Média de Tags por Item'), this.createMetricCard(escalatedTextTag, 'Tag Mais Escalonada', true), this.createListCard('Top 5 Tags', listCardDataTag));
                 break;
-            }
         }
         return cards;
     },
@@ -413,7 +420,6 @@ createMonthlySubgroup: function(month, stats, groupType) {
         const icon = header.querySelector('.toggle-icon');
         const isCollapsed = content.classList.contains('collapsed');
         const parentId = header.parentElement.id;
-
         if (isCollapsed) {
             content.classList.remove('collapsed');
             header.classList.remove('collapsed');
@@ -427,7 +433,6 @@ createMonthlySubgroup: function(month, stats, groupType) {
             content.style.maxHeight = null;
             localStorage.setItem(`groupState-${parentId}`, 'collapsed');
         }
-
         this.updateParentHeight(header);
     },
 
@@ -437,32 +442,26 @@ createMonthlySubgroup: function(month, stats, groupType) {
             setTimeout(() => {
                 parentContent.style.maxHeight = parentContent.scrollHeight + 'px';
                 this.updateParentHeight(parentContent);
-            }, 400); // Espera a animação do filho terminar
+            }, 400);
         }
     },
 
     applySavedStates: function() {
-        const headers = document.querySelectorAll('.group-header');
-        headers.forEach(header => {
+        document.querySelectorAll('.group-header').forEach(header => {
             const parentId = header.parentElement.id;
             if (!parentId) return;
-
             const savedState = localStorage.getItem(`groupState-${parentId}`);
             if (savedState === 'expanded') {
                 const content = header.nextElementSibling;
                 const icon = header.querySelector('.toggle-icon');
-                
-                content.style.transition = 'none'; // Abre sem animar
-
+                content.style.transition = 'none';
                 header.classList.remove('collapsed');
                 content.classList.remove('collapsed');
                 icon.textContent = '-';
                 content.style.maxHeight = content.scrollHeight + 'px';
-
-                this.updateParentHeight(header); // Garante que os pais também se ajustem
-                
-                setTimeout(() => {
-                    content.style.transition = ''; // Reativa a animação
+                this.updateParentHeight(header);
+setTimeout(() => {
+                    content.style.transition = '';
                 }, 10);
             }
         });
@@ -538,7 +537,6 @@ const EditableSection = {
                 } else { document.execCommand(command, false, null); }
             }
         });
-
     },
     renderList: function (section) {
         section.elements.list.innerHTML = '';
