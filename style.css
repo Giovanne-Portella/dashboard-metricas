@@ -182,6 +182,17 @@ body.dark-theme {
     transition: background-color 0.2s, color 0.2s;
 }
 
+/* Botão secundário (Cancelar) usa cor secundária, não a primária */
+.secondary {
+    background-color: var(--secondary-color);
+}
+body:not(.dark-theme) .secondary:hover {
+    background-color: #5a6268;
+}
+body.dark-theme .secondary:hover {
+    background-color: #505d84;
+}
+
 body.dark-theme .primary-btn:hover:not(:disabled) {
     background-color: #9670d3;
 }
@@ -360,6 +371,15 @@ body:not(.dark-theme) .file-label:hover {
     display: flex;
     align-items: center;
     justify-content: center;
+}
+
+/* Cards com valor textual longo (ex: nome do principal work item) */
+.metric-card--text .value {
+    font-size: 1.3em;
+    word-break: break-word;
+    hyphens: auto;
+    text-align: center;
+    line-height: 1.3;
 }
 
 .metric-card .label {
