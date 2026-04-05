@@ -214,5 +214,3 @@ Como não há bundler, os módulos são carregados como scripts globais em ordem
 Este projeto está licenciado sob a [MIT License](https://opensource.org/licenses/MIT).
 
 ---
-
-<p align="center">Feito com ❤️ para profissionais que gostam de dados</p>
